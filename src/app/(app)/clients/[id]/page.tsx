@@ -291,6 +291,7 @@ export default async function ClientProfilePage({ params }: { params: { id: stri
           <div className="space-y-2.5">
             {[
               { label: 'Frequency',     value: client.frequency ? FREQUENCY_LABELS[client.frequency as keyof typeof FREQUENCY_LABELS] : null },
+              { label: 'Days / week',   value: client.days_per_week != null ? `${client.days_per_week} ${client.days_per_week === 1 ? 'day' : 'days'}` : null },
               { label: 'Visits / month', value: client.visits_per_month != null ? Number(client.visits_per_month).toFixed(2) : null },
               { label: 'Rate per visit', value: client.rate_per_visit ? formatAUD(client.rate_per_visit) : null },
               { label: 'Started',       value: client.start_date ? formatDate(client.start_date) : null },
@@ -301,6 +302,16 @@ export default async function ClientProfilePage({ params }: { params: { id: stri
                 <span className="font-medium text-gray-800">{value}</span>
               </div>
             ) : null)}
+
+            {/* Service days */}
+            {((client.service_days as string[]) ?? []).length > 0 && (
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-gray-400">Clean days</span>
+                <span className="font-medium text-gray-800">
+                  {(client.service_days as string[]).join(' · ')}
+                </span>
+              </div>
+            )}
 
             {contractExpiry && (
               <div className="flex items-center justify-between text-sm">

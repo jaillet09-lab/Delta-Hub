@@ -57,7 +57,7 @@ export default async function ClientDashboardPage() {
   const [{ data: client }, { data: lastJob }, { data: nextJob }, { data: historyJobs }] = await Promise.all([
     (supabase as any)
       .from('clients')
-      .select('business_name, frequency, service_days, start_date')
+      .select('business_name, frequency, service_days, days_per_week, start_date')
       .eq('id', clientId)
       .single(),
 
@@ -160,7 +160,12 @@ export default async function ClientDashboardPage() {
                   weekday: 'long', day: 'numeric', month: 'long',
                 })}
               </p>
-              <p className="text-xs text-gray-400 mt-2">Based on your regular schedule</p>
+              {((client?.service_days ?? []) as string[]).length > 0 && (
+                <p className="text-xs text-gray-400 mt-2">
+                  Every {(client.service_days as string[]).join(' & ')}
+                  {client?.days_per_week ? ` · ${client.days_per_week}× per week` : ''}
+                </p>
+              )}
             </div>
           ) : (
             <p className="text-gray-400 text-sm">No upcoming cleans scheduled.</p>

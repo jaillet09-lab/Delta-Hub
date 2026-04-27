@@ -238,38 +238,62 @@ export function ClientForm({ defaultValues, action, submitLabel = 'Save Client',
           rows={2}
         />
 
-        {/* Days Per Week */}
-        <Input
-          label="Cleaning Days Per Week"
-          name="days_per_week"
-          type="number"
-          min={1}
-          max={7}
-          value={daysPerWeek}
-          onChange={(e) => setDaysPerWeek(e.target.value)}
-          placeholder="e.g. 3"
-          error={errors.days_per_week?.[0]}
-        />
+        {/* Cleaning Schedule — days per week + day picker */}
+        <div className="border border-gray-200 rounded-xl p-4 space-y-4 bg-gray-50/60">
+          <p className="text-xs font-semibold text-gray-500 uppercase tracking-widest">Cleaning Schedule</p>
 
-        {/* Day Picker — always shown so manager always knows which days */}
-        {showDayPicker && (
+          {/* Times per week */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Cleaning Days
-              <span className="text-gray-400 font-normal text-xs ml-1">
-                {showSingleDayPicker ? '(select one)' : '(select all that apply)'}
-              </span>
+            <label className="block text-sm font-medium text-gray-700 mb-1.5">
+              How many times per week?
+            </label>
+            <select
+              className="w-full bg-white border border-gray-200 text-gray-900 text-sm rounded-lg px-3 py-2 focus:outline-none focus:border-[#1e3a5f]"
+              value={daysPerWeek}
+              onChange={(e) => {
+                setDaysPerWeek(e.target.value)
+                // Auto-trim selected days if count drops below current selection
+                const n = parseInt(e.target.value) || 0
+                if (n > 0 && selectedDays.length > n) {
+                  setSelectedDays(selectedDays.slice(0, n))
+                }
+              }}
+            >
+              <option value="">— Select —</option>
+              {[1, 2, 3, 4, 5, 6, 7].map((n) => (
+                <option key={n} value={n}>{n} {n === 1 ? 'day' : 'days'} per week</option>
+              ))}
+            </select>
+            {errors.days_per_week?.[0] && (
+              <p className="text-xs text-red-600 mt-1">{errors.days_per_week[0]}</p>
+            )}
+          </div>
+
+          {/* Which days */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1.5">
+              Which days?
+              {daysPerWeek && parseInt(daysPerWeek) > 0 && (
+                <span className="text-gray-400 font-normal text-xs ml-1">
+                  (select {daysPerWeek} {parseInt(daysPerWeek) === 1 ? 'day' : 'days'})
+                </span>
+              )}
             </label>
             <div className="flex flex-wrap gap-2">
               {DAYS_OF_WEEK.map((day) => (
                 <button key={day} type="button" onClick={() => toggleDay(day)}
-                  className={`px-3 py-1.5 rounded-lg text-sm font-medium border transition ${selectedDays.includes(day) ? 'bg-brand-navy text-white border-brand-navy' : 'bg-white text-gray-600 border-gray-300 hover:border-brand-navy'}`}>
+                  className={`px-3 py-1.5 rounded-lg text-sm font-medium border transition ${selectedDays.includes(day) ? 'bg-[#1e3a5f] text-white border-[#1e3a5f]' : 'bg-white text-gray-600 border-gray-300 hover:border-[#1e3a5f]'}`}>
                   {day}
                 </button>
               ))}
             </div>
+            {selectedDays.length > 0 && (
+              <p className="text-xs text-[#1e3a5f] mt-2 font-medium">
+                Cleans on: {selectedDays.join(', ')}
+              </p>
+            )}
           </div>
-        )}
+        </div>
 
         {/* Assigned Cleaner */}
         {cleaners.length > 0 && (
