@@ -10,8 +10,9 @@ import { SERVICE_TYPE_LABELS, FREQUENCY_LABELS, STATE_OPTIONS } from '@/lib/cons
 import type { ExtendedServiceType } from '@/lib/constants'
 import { calculateMonthlyValue, calculateAnnualValue, calculateProfitBreakdown } from '@/lib/billing'
 import { formatAUD } from '@/lib/formatters'
-import type { Client, FrequencyType } from '@/types/app'
-import { AlertTriangle, Globe } from 'lucide-react'
+import type { Client, FrequencyType, AdditionalService, AdditionalServiceFrequency } from '@/types/app'
+import { ADDITIONAL_SERVICE_MULTIPLIERS as MULT, calcAdditionalMonthlyRevenue as calcAddRev, calcAdditionalMonthlyLabour as calcAddLab } from '@/types/app'
+import { AlertTriangle, Globe, Plus, Trash2 } from 'lucide-react'
 
 interface CleanerOption {
   id: string
@@ -36,6 +37,23 @@ const SERVICE_TYPES: ExtendedServiceType[] = [
 const FREQUENCY_OPTIONS = Object.entries(FREQUENCY_LABELS).map(([value, label]) => ({ value, label }))
 const STATE_SELECT_OPTIONS = STATE_OPTIONS.map((s) => ({ value: s, label: s }))
 
+const ADDITIONAL_SERVICE_PRESETS = [
+  'Window Cleaning',
+  'Pressure Washing',
+  'Vinyl / Floor Polish',
+  'Carpet Steam Clean',
+  'End of Lease Clean',
+  'Custom…',
+]
+
+const ADD_SERVICE_FREQ_OPTIONS: { value: AdditionalServiceFrequency; label: string }[] = [
+  { value: 'monthly',    label: 'Monthly'    },
+  { value: 'quarterly',  label: 'Quarterly'  },
+  { value: 'bi-annual',  label: 'Bi-annual'  },
+  { value: 'annual',     label: 'Annual'     },
+  { value: 'one_off',    label: 'One-off'    },
+]
+
 // Frequencies that use a day picker
 const MULTI_DAY_FREQUENCIES: FrequencyType[] = ['daily', 'weekly']
 const SINGLE_DAY_FREQUENCIES: FrequencyType[] = ['fortnightly']
@@ -52,6 +70,9 @@ export function ClientForm({ defaultValues, action, submitLabel = 'Save Client',
   const [errors,       setErrors]       = useState<Record<string, string[]>>({})
   const [loading,      setLoading]      = useState(false)
   const [contactEmail, setContactEmail] = useState(defaultValues?.contact_email || '')
+  const [additionalServices, setAdditionalServices] = useState<AdditionalService[]>(
+    (defaultValues as any)?.additional_services ?? []
+  )
   const [createPortal, setCreatePortal] = useState(false)
   const [portalEmail,  setPortalEmail]  = useState(defaultValues?.contact_email || '')
   const [portalPass,   setPortalPass]   = useState('')
@@ -95,6 +116,7 @@ export function ClientForm({ defaultValues, action, submitLabel = 'Save Client',
     selectedServices.forEach((s) => fd.append('service_type', s))
     fd.delete('service_days')
     selectedDays.forEach((d) => fd.append('service_days', d))
+    fd.set('additional_services', JSON.stringify(additionalServices))
     // Portal fields
     if (createPortal && portalEmail && portalPass) {
       fd.set('portal_email', portalEmail)
@@ -116,6 +138,29 @@ export function ClientForm({ defaultValues, action, submitLabel = 'Save Client',
     { value: '', label: 'Unassigned' },
     ...cleaners.map((c) => ({ value: c.id, label: c.fullName })),
   ]
+
+  function addAdditionalService() {
+    const newSvc: AdditionalService = {
+      id: crypto.randomUUID(),
+      name: 'Window Cleaning',
+      frequency: 'quarterly',
+      my_rate_per_visit: 0,
+      cleaner_cost_per_visit: 0,
+    }
+    setAdditionalServices(prev => [...prev, newSvc])
+  }
+
+  function removeAdditionalService(id: string) {
+    setAdditionalServices(prev => prev.filter(s => s.id !== id))
+  }
+
+  function updateAdditionalService(id: string, field: keyof AdditionalService, value: string | number) {
+    setAdditionalServices(prev => prev.map(s => s.id === id ? { ...s, [field]: value } : s))
+  }
+
+  const addRevMonth  = calcAddRev(additionalServices)
+  const addLabMonth  = calcAddLab(additionalServices)
+  const addProfMonth = addRevMonth - addLabMonth
 
   return (
     <form onSubmit={handleSubmit} className="space-y-5">
@@ -272,6 +317,150 @@ export function ClientForm({ defaultValues, action, submitLabel = 'Save Client',
             <div><p className="text-xs text-gray-400">Labour / Month</p><p className="text-base font-bold text-red-500">{formatAUD(breakdown.monthlyLabour)}</p></div>
             <div><p className="text-xs text-gray-400">Profit / Month</p><p className={`text-base font-bold ${breakdown.monthlyProfit >= 0 ? 'text-green-600' : 'text-red-600'}`}>{formatAUD(breakdown.monthlyProfit)}</p></div>
             <div><p className="text-xs text-gray-400">Gross Margin</p><p className={`text-base font-bold ${marginColor}`}>{breakdown.marginPct.toFixed(0)}%</p></div>
+          </div>
+        )}
+      </div>
+
+      {/* Additional Services */}
+      <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-5 space-y-4">
+        <div className="flex items-center justify-between">
+          <div>
+            <h3 className="text-sm font-semibold text-gray-700">Additional Services</h3>
+            <p className="text-xs text-gray-400 mt-0.5">
+              One-off or periodic services billed separately — window cleaning, pressure washing, etc.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={addAdditionalService}
+            className="inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg bg-[#1e3a5f] text-white hover:bg-[#162d4a] transition-colors"
+          >
+            <Plus className="w-3.5 h-3.5" />
+            Add Service
+          </button>
+        </div>
+
+        {additionalServices.length === 0 && (
+          <p className="text-xs text-gray-400 italic">No additional services added yet.</p>
+        )}
+
+        {additionalServices.map((svc, i) => (
+          <div key={svc.id} className="border border-gray-200 rounded-lg p-4 space-y-3 bg-gray-50">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Service {i + 1}</span>
+              <button
+                type="button"
+                onClick={() => removeAdditionalService(svc.id)}
+                className="text-red-400 hover:text-red-600 transition-colors"
+              >
+                <Trash2 className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Service name */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs font-medium text-gray-600 mb-1">Service Name</label>
+                <select
+                  className="w-full bg-white border border-gray-200 text-gray-900 text-sm rounded-lg px-3 py-2 focus:outline-none focus:border-blue-500"
+                  value={ADDITIONAL_SERVICE_PRESETS.includes(svc.name) ? svc.name : 'Custom…'}
+                  onChange={(e) => {
+                    if (e.target.value !== 'Custom…') {
+                      updateAdditionalService(svc.id, 'name', e.target.value)
+                    } else {
+                      updateAdditionalService(svc.id, 'name', '')
+                    }
+                  }}
+                >
+                  {ADDITIONAL_SERVICE_PRESETS.map(p => (
+                    <option key={p} value={p}>{p}</option>
+                  ))}
+                </select>
+                {(!ADDITIONAL_SERVICE_PRESETS.includes(svc.name) || svc.name === '') && (
+                  <input
+                    type="text"
+                    className="mt-1.5 w-full bg-white border border-gray-200 text-gray-900 text-sm rounded-lg px-3 py-2 focus:outline-none focus:border-blue-500"
+                    placeholder="Custom service name…"
+                    value={svc.name === 'Custom…' ? '' : svc.name}
+                    onChange={(e) => updateAdditionalService(svc.id, 'name', e.target.value)}
+                  />
+                )}
+              </div>
+
+              {/* Frequency */}
+              <div>
+                <label className="block text-xs font-medium text-gray-600 mb-1">Frequency</label>
+                <select
+                  className="w-full bg-white border border-gray-200 text-gray-900 text-sm rounded-lg px-3 py-2 focus:outline-none focus:border-blue-500"
+                  value={svc.frequency}
+                  onChange={(e) => updateAdditionalService(svc.id, 'frequency', e.target.value as AdditionalServiceFrequency)}
+                >
+                  {ADD_SERVICE_FREQ_OPTIONS.map(o => (
+                    <option key={o.value} value={o.value}>{o.label}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            {/* Pricing */}
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs font-medium text-gray-600 mb-1">My Charge / Visit ($)</label>
+                <input
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  className="w-full bg-white border border-gray-200 text-gray-900 text-sm rounded-lg px-3 py-2 focus:outline-none focus:border-blue-500"
+                  placeholder="0.00"
+                  value={svc.my_rate_per_visit || ''}
+                  onChange={(e) => updateAdditionalService(svc.id, 'my_rate_per_visit', parseFloat(e.target.value) || 0)}
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-600 mb-1">Cleaner Cost / Visit ($)</label>
+                <input
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  className="w-full bg-white border border-gray-200 text-gray-900 text-sm rounded-lg px-3 py-2 focus:outline-none focus:border-blue-500"
+                  placeholder="0.00"
+                  value={svc.cleaner_cost_per_visit || ''}
+                  onChange={(e) => updateAdditionalService(svc.id, 'cleaner_cost_per_visit', parseFloat(e.target.value) || 0)}
+                />
+              </div>
+            </div>
+
+            {/* Per-service monthly preview */}
+            {svc.my_rate_per_visit > 0 && svc.frequency !== 'one_off' && (
+              <div className="flex gap-4 pt-2 border-t border-gray-200 text-xs text-gray-500">
+                <span>≈ <strong className="text-gray-900">{formatAUD(svc.my_rate_per_visit * (MULT[svc.frequency] ?? 0))}</strong> revenue/month</span>
+                {svc.cleaner_cost_per_visit > 0 && (
+                  <span>≈ <strong className="text-gray-900">{formatAUD(svc.cleaner_cost_per_visit * (MULT[svc.frequency] ?? 0))}</strong> cost/month</span>
+                )}
+              </div>
+            )}
+          </div>
+        ))}
+
+        {/* Summary row */}
+        {additionalServices.length > 1 && addRevMonth > 0 && (
+          <div className="flex gap-6 pt-3 border-t border-gray-200 text-sm">
+            <div>
+              <p className="text-xs text-gray-400">Additional Rev / Month</p>
+              <p className="font-bold text-[#1e3a5f]">{formatAUD(addRevMonth)}</p>
+            </div>
+            {addLabMonth > 0 && (
+              <div>
+                <p className="text-xs text-gray-400">Additional Cost / Month</p>
+                <p className="font-bold text-red-500">{formatAUD(addLabMonth)}</p>
+              </div>
+            )}
+            {addLabMonth > 0 && (
+              <div>
+                <p className="text-xs text-gray-400">Additional Profit / Month</p>
+                <p className={`font-bold ${addProfMonth >= 0 ? 'text-green-600' : 'text-red-600'}`}>{formatAUD(addProfMonth)}</p>
+              </div>
+            )}
           </div>
         )}
       </div>

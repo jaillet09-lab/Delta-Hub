@@ -22,7 +22,8 @@ import {
   ArrowLeft, Edit, Phone, Mail, MapPin, AlertTriangle, Calendar, ChevronRight,
   TrendingUp, DollarSign, BarChart3, Clock,
 } from 'lucide-react'
-import type { ServiceType } from '@/types/app'
+import type { ServiceType, AdditionalService } from '@/types/app'
+import { ADDITIONAL_SERVICE_MULTIPLIERS as MULT, calcAdditionalMonthlyRevenue, calcAdditionalMonthlyLabour } from '@/types/app'
 
 export default async function ClientProfilePage({ params }: { params: { id: string } }) {
   const supabase = createClient()
@@ -316,6 +317,59 @@ export default async function ClientProfilePage({ params }: { params: { id: stri
           </div>
         </div>
       </div>
+
+      {/* Additional Services */}
+      {((client as any).additional_services as AdditionalService[] | undefined)?.length ? (
+        <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
+          <h3 className="text-sm font-semibold text-gray-900 mb-4">Additional Services</h3>
+          <div className="space-y-3">
+            {((client as any).additional_services as AdditionalService[]).map((svc) => {
+              const mult = MULT[svc.frequency] ?? 0
+              const revMonth  = svc.my_rate_per_visit * mult
+              const costMonth = svc.cleaner_cost_per_visit * mult
+              const profMonth = revMonth - costMonth
+              const freqLabel: Record<string, string> = {
+                monthly: 'Monthly', quarterly: 'Quarterly',
+                'bi-annual': 'Bi-annual', annual: 'Annual', one_off: 'One-off',
+              }
+              return (
+                <div key={svc.id} className="flex items-start justify-between border border-gray-100 rounded-lg p-3 bg-gray-50">
+                  <div>
+                    <p className="text-sm font-semibold text-gray-800">{svc.name}</p>
+                    <p className="text-xs text-gray-400 mt-0.5">{freqLabel[svc.frequency] ?? svc.frequency}</p>
+                  </div>
+                  <div className="text-right space-y-0.5">
+                    <p className="text-sm font-bold text-[#1e3a5f]">{formatAUD(svc.my_rate_per_visit)} / visit</p>
+                    {svc.cleaner_cost_per_visit > 0 && (
+                      <p className="text-xs text-gray-400">Cost: {formatAUD(svc.cleaner_cost_per_visit)} / visit</p>
+                    )}
+                    {mult > 0 && (
+                      <p className="text-xs text-gray-400">≈ {formatAUD(revMonth)}/mo revenue
+                        {costMonth > 0 ? `, ${formatAUD(profMonth)}/mo profit` : ''}
+                      </p>
+                    )}
+                  </div>
+                </div>
+              )
+            })}
+            {/* Totals row */}
+            {(() => {
+              const svcs = (client as any).additional_services as AdditionalService[]
+              const totalRev  = calcAdditionalMonthlyRevenue(svcs)
+              const totalLab  = calcAdditionalMonthlyLabour(svcs)
+              const totalProf = totalRev - totalLab
+              if (svcs.length < 2 || totalRev === 0) return null
+              return (
+                <div className="flex gap-6 pt-2 border-t border-gray-200 text-sm">
+                  <div><p className="text-xs text-gray-400">Total / Month</p><p className="font-bold text-[#1e3a5f]">{formatAUD(totalRev)}</p></div>
+                  {totalLab > 0 && <div><p className="text-xs text-gray-400">Cost / Month</p><p className="font-bold text-red-500">{formatAUD(totalLab)}</p></div>}
+                  {totalLab > 0 && <div><p className="text-xs text-gray-400">Profit / Month</p><p className={`font-bold ${totalProf >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>{formatAUD(totalProf)}</p></div>}
+                </div>
+              )
+            })()}
+          </div>
+        </div>
+      ) : null}
 
       {/* Notes */}
       {client.notes && (

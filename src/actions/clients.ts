@@ -44,6 +44,9 @@ export async function createClientAction(formData: FormData) {
   const cleanerHourlyRate    = parseFloat(formData.get('cleaner_hourly_rate')    as string) || null
   const cleanerHoursPerVisit = parseFloat(formData.get('cleaner_hours_per_visit') as string) || null
   const contractExpiryDate   = (formData.get('contract_expiry_date') as string)  || null
+  const additionalServicesRaw = (formData.get('additional_services') as string) || '[]'
+  let additionalServices: any[] = []
+  try { additionalServices = JSON.parse(additionalServicesRaw) } catch {}
 
   const { frequency, rate_per_visit, days_per_week, scope_of_work, access_details, assigned_cleaner_id, ...rest } = parsed.data
   const monthly_value = rate_per_visit
@@ -76,6 +79,7 @@ export async function createClientAction(formData: FormData) {
       scope_of_work:           scope_of_work || null,
       access_details:          access_details || null,
       assigned_cleaner_id:     assigned_cleaner_id || null,
+      additional_services:     additionalServices,
     })
     .select('id')
     .single()
@@ -158,6 +162,9 @@ export async function updateClientAction(id: string, formData: FormData) {
   const cleanerHourlyRateUpd    = parseFloat(formData.get('cleaner_hourly_rate')    as string) || null
   const cleanerHoursPerVisitUpd = parseFloat(formData.get('cleaner_hours_per_visit') as string) || null
   const contractExpiryDateUpd   = (formData.get('contract_expiry_date') as string)  || null
+  const additionalServicesUpdRaw = (formData.get('additional_services') as string) || '[]'
+  let additionalServicesUpd: any[] = []
+  try { additionalServicesUpd = JSON.parse(additionalServicesUpdRaw) } catch {}
 
   const { frequency, rate_per_visit, days_per_week: dpw, scope_of_work: sow, access_details: ad, assigned_cleaner_id: aci, ...rest } = parsed.data
   const monthly_value = rate_per_visit
@@ -190,6 +197,7 @@ export async function updateClientAction(id: string, formData: FormData) {
       scope_of_work:           sow || null,
       access_details:          ad || null,
       assigned_cleaner_id:     aci || null,
+      additional_services:     additionalServicesUpd,
     })
     .eq('id', id)
 

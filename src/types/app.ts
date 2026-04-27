@@ -133,6 +133,8 @@ export interface ClientWithHealth extends Client {
   margin_pct: number | null
   profile_complete: boolean
   contract_expiry_date: string | null
+  // Added in migration 009:
+  additional_services: AdditionalService[]
 }
 
 // ─── Dashboard alerts ─────────────────────────────────────────────────────────
@@ -196,6 +198,41 @@ export interface EmailSent {
   body: string
   sent_at: string
   status: string
+}
+
+// ─── Additional services ──────────────────────────────────────────────────────
+
+export type AdditionalServiceFrequency = 'monthly' | 'quarterly' | 'bi-annual' | 'annual' | 'one_off'
+
+export interface AdditionalService {
+  id: string
+  name: string
+  frequency: AdditionalServiceFrequency
+  my_rate_per_visit: number
+  cleaner_cost_per_visit: number
+}
+
+/** Monthly revenue multiplier for additional service frequencies */
+export const ADDITIONAL_SERVICE_MULTIPLIERS: Record<AdditionalServiceFrequency, number> = {
+  monthly:    1,
+  quarterly:  1 / 3,
+  'bi-annual': 1 / 6,
+  annual:     1 / 12,
+  one_off:    0,
+}
+
+export function calcAdditionalMonthlyRevenue(services: AdditionalService[]): number {
+  return services.reduce((sum, s) => {
+    const mult = ADDITIONAL_SERVICE_MULTIPLIERS[s.frequency] ?? 0
+    return sum + s.my_rate_per_visit * mult
+  }, 0)
+}
+
+export function calcAdditionalMonthlyLabour(services: AdditionalService[]): number {
+  return services.reduce((sum, s) => {
+    const mult = ADDITIONAL_SERVICE_MULTIPLIERS[s.frequency] ?? 0
+    return sum + s.cleaner_cost_per_visit * mult
+  }, 0)
 }
 
 // ─── Document content (JSONB) ─────────────────────────────────────────────────
