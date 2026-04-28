@@ -10,6 +10,7 @@ import { ImportToPortalButton } from '@/components/clients/ImportToPortalButton'
 import { Button } from '@/components/ui/Button'
 import { ActiveBadge, ServiceTypeBadge } from '@/components/ui/Badge'
 import { formatAUD, formatDate, formatTenure } from '@/lib/formatters'
+import { calculateMonthlyValue } from '@/lib/billing'
 import { monthLabel } from '@/lib/calendar'
 import {
   FREQUENCY_LABELS,
@@ -20,7 +21,7 @@ import {
 import { toggleClientActiveAction } from '@/actions/clients'
 import {
   ArrowLeft, Edit, Phone, Mail, MapPin, AlertTriangle, Calendar, ChevronRight,
-  TrendingUp, DollarSign, BarChart3, Clock,
+  TrendingUp, DollarSign, BarChart3, Clock, Building2,
 } from 'lucide-react'
 import type { ServiceType, AdditionalService } from '@/types/app'
 import { ADDITIONAL_SERVICE_MULTIPLIERS as MULT, calcAdditionalMonthlyRevenue, calcAdditionalMonthlyLabour } from '@/types/app'
@@ -29,7 +30,7 @@ export default async function ClientProfilePage({ params }: { params: { id: stri
   const supabase = createClient()
   const settings = await getSettings()
 
-  const [clientRes, docsRes, surveysRes, financialsRes, jobsRes] = await Promise.all([
+  const [clientRes, docsRes, surveysRes, financialsRes, jobsRes, sitesRes] = await Promise.all([
     (supabase as any).from('clients').select('*').eq('id', params.id).single(),
     (supabase as any)
       .from('documents').select('*').eq('client_id', params.id).order('created_at', { ascending: false }),
@@ -47,6 +48,11 @@ export default async function ClientProfilePage({ params }: { params: { id: stri
       .eq('client_id', params.id)
       .order('scheduled_date', { ascending: false })
       .limit(30),
+    (supabase as any)
+      .from('client_sites')
+      .select('*')
+      .eq('client_id', params.id)
+      .order('sort_order', { ascending: true }),
   ])
 
   if (!clientRes.data) notFound()
@@ -56,6 +62,7 @@ export default async function ClientProfilePage({ params }: { params: { id: stri
   const surveys    = surveysRes.data      || []
   const financials = financialsRes.data   || []
   const allJobs    = (jobsRes.data        || []) as any[]
+  const clientSites = (sitesRes?.data     || []) as any[]
 
   const latestSurvey = surveys[0]
   const latestSurveyAvg = latestSurvey
@@ -381,6 +388,66 @@ export default async function ClientProfilePage({ params }: { params: { id: stri
           </div>
         </div>
       ) : null}
+
+      {/* Sites — multi-site clients */}
+      {client.is_multi_site && clientSites.length > 0 && (
+        <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
+          <h3 className="text-sm font-semibold text-gray-900 mb-4 flex items-center gap-2">
+            <MapPin className="w-4 h-4 text-gray-400" />
+            Sites · {clientSites.length} location{clientSites.length !== 1 ? 's' : ''}
+          </h3>
+          <div className="space-y-3">
+            {clientSites.map((site: any, i: number) => {
+              const siteRate = site.rate_per_visit ? parseFloat(site.rate_per_visit) : 0
+              const siteMRR  = siteRate && site.frequency
+                ? calculateMonthlyValue(siteRate, site.frequency)
+                : 0
+              return (
+                <div key={site.id} className="border border-gray-100 rounded-xl p-4 bg-gray-50">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="flex items-start gap-3 min-w-0">
+                      <span className="flex-shrink-0 w-6 h-6 rounded-full bg-[#1e3a5f] text-white text-xs font-bold flex items-center justify-center mt-0.5">
+                        {i + 1}
+                      </span>
+                      <div className="min-w-0">
+                        <p className="text-sm font-semibold text-gray-900">{site.site_name}</p>
+                        {(site.address || site.suburb) && (
+                          <p className="text-xs text-gray-400 mt-0.5 flex items-center gap-1">
+                            <MapPin className="w-3 h-3 flex-shrink-0" />
+                            {[site.address, site.suburb, site.state, site.postcode].filter(Boolean).join(', ')}
+                          </p>
+                        )}
+                        <div className="flex flex-wrap gap-x-4 gap-y-1 mt-2">
+                          {site.frequency && (
+                            <span className="text-xs text-gray-500">
+                              {FREQUENCY_LABELS[site.frequency as keyof typeof FREQUENCY_LABELS] ?? site.frequency}
+                            </span>
+                          )}
+                          {site.days_per_week && (
+                            <span className="text-xs text-gray-500">{site.days_per_week}×/wk</span>
+                          )}
+                          {(site.service_days ?? []).length > 0 && (
+                            <span className="text-xs text-gray-500">{(site.service_days as string[]).join(' · ')}</span>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                    {siteMRR > 0 && (
+                      <div className="text-right flex-shrink-0">
+                        <p className="text-sm font-bold text-gray-900">{formatAUD(siteRate)}/visit</p>
+                        <p className="text-xs text-gray-400">≈ {formatAUD(siteMRR)}/mo</p>
+                      </div>
+                    )}
+                  </div>
+                  {site.scope_of_work && (
+                    <p className="text-xs text-gray-500 mt-3 pt-3 border-t border-gray-200 leading-relaxed">{site.scope_of_work}</p>
+                  )}
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      )}
 
       {/* Notes */}
       {client.notes && (

@@ -39,7 +39,7 @@ export const clientSchema = z.object({
   service_type: z
     .array(serviceTypeEnum)
     .min(0),
-  frequency: frequencyEnum,
+  frequency: frequencyEnum.optional(),
   rate_per_visit: z.preprocess(
     (v) => (v === '' || v === null || v === undefined ? undefined : v),
     z.coerce.number().positive('Must be a positive amount').optional()

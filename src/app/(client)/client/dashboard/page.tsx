@@ -30,7 +30,11 @@ function formatTimeAU(isoStr: string): string {
   })
 }
 
-export default async function ClientDashboardPage() {
+export default async function ClientDashboardPage({
+  searchParams,
+}: {
+  searchParams?: { site?: string }
+}) {
   const supabase = createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
@@ -51,62 +55,88 @@ export default async function ClientDashboardPage() {
     )
   }
 
-  const clientId = profile.linked_client_id
-  const today = new Date().toISOString().split('T')[0]
+  const clientId      = profile.linked_client_id
+  const today         = new Date().toISOString().split('T')[0]
+  const selectedSiteId = searchParams?.site || null
 
-  const [{ data: client }, { data: lastJob }, { data: nextJob }, { data: historyJobs }] = await Promise.all([
+  const [{ data: client }, { data: sitesRaw }] = await Promise.all([
     (supabase as any)
       .from('clients')
-      .select('business_name, frequency, service_days, days_per_week, start_date')
+      .select('business_name, frequency, service_days, days_per_week, start_date, is_multi_site')
       .eq('id', clientId)
       .single(),
-
-    // Most recent completed job
     (supabase as any)
-      .from('job_assignments')
-      .select('scheduled_date, job_submissions(completed_at, notes, completed_by_role)')
+      .from('client_sites')
+      .select('id, site_name, suburb, frequency, service_days, days_per_week')
       .eq('client_id', clientId)
-      .eq('status', 'completed')
-      .order('scheduled_date', { ascending: false })
-      .limit(1)
-      .single(),
+      .order('sort_order', { ascending: true }),
+  ])
+
+  const sites = (sitesRaw ?? []) as any[]
+  const isMultiSite = client?.is_multi_site && sites.length > 1
+
+  // Determine schedule source: selected site (multi-site) or client itself (single-site)
+  const scheduleSource = isMultiSite && selectedSiteId
+    ? sites.find((s: any) => s.id === selectedSiteId) ?? client
+    : client
+
+  // Build base job query filters
+  function applyJobFilters(q: any) {
+    q = q.eq('client_id', clientId)
+    if (isMultiSite && selectedSiteId) {
+      q = q.eq('site_id', selectedSiteId)
+    }
+    return q
+  }
+
+  const [{ data: lastJob }, { data: nextJob }, { data: historyJobs }] = await Promise.all([
+    // Most recent completed job
+    applyJobFilters(
+      (supabase as any)
+        .from('job_assignments')
+        .select('scheduled_date, job_submissions(completed_at, notes, completed_by_role)')
+        .eq('status', 'completed')
+        .order('scheduled_date', { ascending: false })
+        .limit(1)
+    ).single(),
 
     // Next upcoming job
-    (supabase as any)
-      .from('job_assignments')
-      .select('scheduled_date, status, profiles(full_name)')
-      .eq('client_id', clientId)
-      .gte('scheduled_date', today)
-      .in('status', ['not_started', 'in_progress'])
-      .order('scheduled_date', { ascending: true })
-      .limit(1)
-      .single(),
+    applyJobFilters(
+      (supabase as any)
+        .from('job_assignments')
+        .select('scheduled_date, status, profiles(full_name)')
+        .gte('scheduled_date', today)
+        .in('status', ['not_started', 'in_progress'])
+        .order('scheduled_date', { ascending: true })
+        .limit(1)
+    ).single(),
 
     // All service history
-    (supabase as any)
-      .from('job_assignments')
-      .select('id, scheduled_date, job_submissions(completed_at, notes, completed_by_role)')
-      .eq('client_id', clientId)
-      .eq('status', 'completed')
-      .order('scheduled_date', { ascending: false })
-      .limit(100),
+    applyJobFilters(
+      (supabase as any)
+        .from('job_assignments')
+        .select('id, scheduled_date, job_submissions(completed_at, notes, completed_by_role)')
+        .eq('status', 'completed')
+        .order('scheduled_date', { ascending: false })
+        .limit(100)
+    ),
   ])
 
   const lastSub = Array.isArray(lastJob?.job_submissions)
     ? (lastJob.job_submissions[0] ?? null)
     : (lastJob?.job_submissions ?? null)
 
-  // If no scheduled job assignment, calculate next expected date from client's frequency + service_days
+  // If no scheduled job assignment, calculate next expected date from schedule source
   let scheduledNextDate: string | null = null
-  if (!nextJob && client?.frequency && (client?.service_days ?? []).length > 0) {
+  if (!nextJob && scheduleSource?.frequency && (scheduleSource?.service_days ?? []).length > 0) {
     const upcoming = getUpcomingDates({
       id: clientId,
-      business_name: client.business_name,
+      business_name: client?.business_name ?? '',
       address: null,
       suburb: null,
-      frequency: client.frequency,
-      service_days: client.service_days ?? [],
-      start_date: client.start_date ?? null,
+      frequency: scheduleSource.frequency,
+      service_days: scheduleSource.service_days ?? [],
+      start_date: (scheduleSource as any).start_date ?? client?.start_date ?? null,
     }, 90)
     if (upcoming.length > 0) {
       scheduledNextDate = upcoming[0].toISOString().split('T')[0]
@@ -116,7 +146,13 @@ export default async function ClientDashboardPage() {
   const greeting = getBrisbaneGreeting()
 
   return (
-    <ClientShell clientName={client?.business_name} userName={profile.full_name} activePath="/client/dashboard">
+    <ClientShell
+      clientName={client?.business_name}
+      userName={profile.full_name}
+      activePath="/client/dashboard"
+      sites={isMultiSite ? sites.map((s: any) => ({ id: s.id, site_name: s.site_name, suburb: s.suburb })) : undefined}
+      selectedSiteId={isMultiSite ? selectedSiteId : undefined}
+    >
 
       {/* Greeting */}
       <div className="mb-10">
@@ -160,10 +196,10 @@ export default async function ClientDashboardPage() {
                   weekday: 'long', day: 'numeric', month: 'long',
                 })}
               </p>
-              {((client?.service_days ?? []) as string[]).length > 0 && (
+              {((scheduleSource?.service_days ?? []) as string[]).length > 0 && (
                 <p className="text-xs text-gray-400 mt-2">
-                  Every {(client.service_days as string[]).join(' & ')}
-                  {client?.days_per_week ? ` · ${client.days_per_week}× per week` : ''}
+                  Every {(scheduleSource.service_days as string[]).join(' & ')}
+                  {scheduleSource?.days_per_week ? ` · ${scheduleSource.days_per_week}× per week` : ''}
                 </p>
               )}
             </div>

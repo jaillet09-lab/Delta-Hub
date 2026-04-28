@@ -12,7 +12,8 @@ import { calculateMonthlyValue, calculateAnnualValue, calculateProfitBreakdown }
 import { formatAUD } from '@/lib/formatters'
 import type { Client, FrequencyType, AdditionalService, AdditionalServiceFrequency } from '@/types/app'
 import { ADDITIONAL_SERVICE_MULTIPLIERS as MULT, calcAdditionalMonthlyRevenue as calcAddRev, calcAdditionalMonthlyLabour as calcAddLab } from '@/types/app'
-import { AlertTriangle, Globe, Plus, Trash2 } from 'lucide-react'
+import { AlertTriangle, Globe, Plus, Trash2, Building2, MapPin } from 'lucide-react'
+import { SiteBuilder, SiteFormData } from '@/components/clients/SiteBuilder'
 
 interface CleanerOption {
   id: string
@@ -21,6 +22,7 @@ interface CleanerOption {
 
 interface ClientFormProps {
   defaultValues?: Partial<Client> & { [key: string]: any }
+  defaultSites?: SiteFormData[]
   action: (formData: FormData) => Promise<{ error?: Record<string, string[]> } | void>
   submitLabel?: string
   cleaners?: CleanerOption[]
@@ -58,7 +60,7 @@ const ADD_SERVICE_FREQ_OPTIONS: { value: AdditionalServiceFrequency; label: stri
 const MULTI_DAY_FREQUENCIES: FrequencyType[] = ['daily', 'weekly']
 const SINGLE_DAY_FREQUENCIES: FrequencyType[] = ['fortnightly']
 
-export function ClientForm({ defaultValues, action, submitLabel = 'Save Client', cleaners = [] }: ClientFormProps) {
+export function ClientForm({ defaultValues, defaultSites, action, submitLabel = 'Save Client', cleaners = [] }: ClientFormProps) {
   const router = useRouter()
   const [selectedServices, setSelectedServices] = useState<ExtendedServiceType[]>((defaultValues?.service_type as ExtendedServiceType[]) || [])
   const [selectedDays,     setSelectedDays]     = useState<string[]>((defaultValues?.service_days as string[]) || [])
@@ -73,6 +75,8 @@ export function ClientForm({ defaultValues, action, submitLabel = 'Save Client',
   const [additionalServices, setAdditionalServices] = useState<AdditionalService[]>(
     (defaultValues as any)?.additional_services ?? []
   )
+  const [isMultiSite, setIsMultiSite] = useState<boolean>((defaultValues as any)?.is_multi_site ?? false)
+  const [sites, setSites] = useState<SiteFormData[]>(defaultSites ?? [])
   const [createPortal, setCreatePortal] = useState(false)
   const [portalEmail,  setPortalEmail]  = useState(defaultValues?.contact_email || '')
   const [portalPass,   setPortalPass]   = useState('')
@@ -117,6 +121,10 @@ export function ClientForm({ defaultValues, action, submitLabel = 'Save Client',
     fd.delete('service_days')
     selectedDays.forEach((d) => fd.append('service_days', d))
     fd.set('additional_services', JSON.stringify(additionalServices))
+    fd.set('is_multi_site', isMultiSite ? 'true' : 'false')
+    if (isMultiSite) {
+      fd.set('sites', JSON.stringify(sites))
+    }
     // Portal fields
     if (createPortal && portalEmail && portalPass) {
       fd.set('portal_email', portalEmail)
@@ -202,7 +210,57 @@ export function ClientForm({ defaultValues, action, submitLabel = 'Save Client',
         </div>
       </div>
 
-      {/* Service configuration */}
+      {/* Site Type Toggle */}
+      <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-5">
+        <h3 className="text-sm font-semibold text-gray-700 mb-1">Site Type</h3>
+        <p className="text-xs text-gray-400 mb-4">Does this client have one location or multiple separate sites?</p>
+        <div className="grid grid-cols-2 gap-3">
+          <button
+            type="button"
+            onClick={() => setIsMultiSite(false)}
+            className={`flex items-center gap-3 rounded-xl border-2 p-4 text-left transition-all ${!isMultiSite ? 'border-[#1e3a5f] bg-[#1e3a5f]/5' : 'border-gray-200 hover:border-gray-300'}`}
+          >
+            <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${!isMultiSite ? 'bg-[#1e3a5f] text-white' : 'bg-gray-100 text-gray-400'}`}>
+              <Building2 className="w-4 h-4" />
+            </div>
+            <div>
+              <p className={`text-sm font-semibold ${!isMultiSite ? 'text-[#1e3a5f]' : 'text-gray-600'}`}>Single Site</p>
+              <p className="text-xs text-gray-400 mt-0.5">One location</p>
+            </div>
+          </button>
+          <button
+            type="button"
+            onClick={() => setIsMultiSite(true)}
+            className={`flex items-center gap-3 rounded-xl border-2 p-4 text-left transition-all ${isMultiSite ? 'border-[#1e3a5f] bg-[#1e3a5f]/5' : 'border-gray-200 hover:border-gray-300'}`}
+          >
+            <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${isMultiSite ? 'bg-[#1e3a5f] text-white' : 'bg-gray-100 text-gray-400'}`}>
+              <MapPin className="w-4 h-4" />
+            </div>
+            <div>
+              <p className={`text-sm font-semibold ${isMultiSite ? 'text-[#1e3a5f]' : 'text-gray-600'}`}>Multi-Site</p>
+              <p className="text-xs text-gray-400 mt-0.5">Multiple locations</p>
+            </div>
+          </button>
+        </div>
+      </div>
+
+      {/* Multi-Site Builder */}
+      {isMultiSite && (
+        <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-5 space-y-4">
+          <div>
+            <h3 className="text-sm font-semibold text-gray-700">Sites</h3>
+            <p className="text-xs text-gray-400 mt-0.5">Add each location with its own schedule, billing, and cleaner details.</p>
+          </div>
+          <SiteBuilder
+            defaultSites={sites.length > 0 ? sites : undefined}
+            cleaners={cleaners}
+            onChange={setSites}
+          />
+        </div>
+      )}
+
+      {/* Service configuration — single site only */}
+      {!isMultiSite && (
       <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-5 space-y-4">
         <h3 className="text-sm font-semibold text-gray-700">Service Configuration</h3>
 
@@ -313,8 +371,10 @@ export function ClientForm({ defaultValues, action, submitLabel = 'Save Client',
           <Input label="Contract Expiry Date" name="contract_expiry_date" type="date" defaultValue={defaultValues?.contract_expiry_date ? String(defaultValues.contract_expiry_date).substring(0, 10) : ''} />
         </div>
       </div>
+      )}
 
-      {/* Billing */}
+      {/* Billing — single site only */}
+      {!isMultiSite && (
       <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-5 space-y-4">
         <h3 className="text-sm font-semibold text-gray-700">Billing</h3>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -328,8 +388,10 @@ export function ClientForm({ defaultValues, action, submitLabel = 'Save Client',
           </div>
         )}
       </div>
+      )}
 
-      {/* Cleaner Costs */}
+      {/* Cleaner Costs — single site only */}
+      {!isMultiSite && (
       <div className="bg-white rounded-xl border-2 border-brand-navy/20 shadow-sm p-5 space-y-4">
         <div className="flex items-start justify-between">
           <div>
@@ -355,6 +417,7 @@ export function ClientForm({ defaultValues, action, submitLabel = 'Save Client',
           </div>
         )}
       </div>
+      )}
 
       {/* Additional Services */}
       <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-5 space-y-4">

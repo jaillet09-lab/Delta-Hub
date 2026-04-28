@@ -9,8 +9,22 @@ import { calculateMonthlyValue, calculateAnnualValue } from '@/lib/billing'
 import { sendPushToRole } from '@/lib/push'
 import type { FrequencyType, ServiceType } from '@/types/app'
 
+function parseSites(raw: string | null): any[] {
+  if (!raw) return []
+  try { return JSON.parse(raw) } catch { return [] }
+}
+
+function calcSiteMonthlyValue(site: any): number {
+  const rate = parseFloat(site.rate_per_visit) || 0
+  if (!rate || !site.frequency) return 0
+  return calculateMonthlyValue(rate, site.frequency as FrequencyType)
+}
+
 export async function createClientAction(formData: FormData) {
   const supabase = createClient()
+
+  const isMultiSite = formData.get('is_multi_site') === 'true'
+  const sitesData   = isMultiSite ? parseSites(formData.get('sites') as string | null) : []
 
   const serviceTypes = formData.getAll('service_type') as ServiceType[]
   const serviceDays  = formData.getAll('service_days')  as string[]
@@ -25,7 +39,7 @@ export async function createClientAction(formData: FormData) {
     state: formData.get('state') || 'QLD',
     postcode: formData.get('postcode'),
     service_type: serviceTypes,
-    frequency: formData.get('frequency'),
+    frequency: formData.get('frequency') || undefined,
     rate_per_visit: formData.get('rate_per_visit'),
     start_date: formData.get('start_date'),
     active: true,
@@ -49,9 +63,17 @@ export async function createClientAction(formData: FormData) {
   try { additionalServices = JSON.parse(additionalServicesRaw) } catch {}
 
   const { frequency, rate_per_visit, days_per_week, scope_of_work, access_details, assigned_cleaner_id, ...rest } = parsed.data
-  const monthly_value = rate_per_visit
-    ? calculateMonthlyValue(rate_per_visit, frequency as FrequencyType)
+
+  // For multi-site, sum monthly value across all sites
+  const multiSiteMonthly = isMultiSite && sitesData.length > 0
+    ? sitesData.reduce((sum: number, s: any) => sum + calcSiteMonthlyValue(s), 0)
     : null
+
+  const monthly_value = isMultiSite
+    ? (multiSiteMonthly || null)
+    : rate_per_visit && frequency
+      ? calculateMonthlyValue(rate_per_visit, frequency as FrequencyType)
+      : null
   const annual_value = monthly_value ? calculateAnnualValue(monthly_value) : null
 
   const db = supabase as any
@@ -59,8 +81,9 @@ export async function createClientAction(formData: FormData) {
     .from('clients')
     .insert({
       ...rest,
-      frequency,
-      rate_per_visit: rate_per_visit || null,
+      is_multi_site:   isMultiSite,
+      frequency:       isMultiSite ? null : (frequency ?? null),
+      rate_per_visit:  isMultiSite ? null : (rate_per_visit || null),
       monthly_value,
       annual_value,
       start_date: rest.start_date || null,
@@ -71,18 +94,42 @@ export async function createClientAction(formData: FormData) {
       suburb: rest.suburb || null,
       postcode: rest.postcode || null,
       notes: rest.notes || null,
-      cleaner_hourly_rate:    cleanerHourlyRate,
-      cleaner_hours_per_visit: cleanerHoursPerVisit,
+      cleaner_hourly_rate:    isMultiSite ? null : cleanerHourlyRate,
+      cleaner_hours_per_visit: isMultiSite ? null : cleanerHoursPerVisit,
       contract_expiry_date:   contractExpiryDate,
-      service_days:           serviceDays,
-      days_per_week:           days_per_week ?? null,
-      scope_of_work:           scope_of_work || null,
-      access_details:          access_details || null,
-      assigned_cleaner_id:     assigned_cleaner_id || null,
-      additional_services:     additionalServices,
+      service_days:           isMultiSite ? [] : serviceDays,
+      days_per_week:          isMultiSite ? null : (days_per_week ?? null),
+      scope_of_work:          isMultiSite ? null : (scope_of_work || null),
+      access_details:         isMultiSite ? null : (access_details || null),
+      assigned_cleaner_id:    isMultiSite ? null : (assigned_cleaner_id || null),
+      additional_services:    additionalServices,
     })
     .select('id')
     .single()
+
+  // Insert sites after client is created
+  if (!error && isMultiSite && sitesData.length > 0 && data?.id) {
+    const siteInserts = sitesData.map((site: any, idx: number) => ({
+      client_id:               data.id,
+      site_name:               site.site_name || `Site ${idx + 1}`,
+      address:                 site.address   || null,
+      suburb:                  site.suburb    || null,
+      state:                   site.state     || 'QLD',
+      postcode:                site.postcode  || null,
+      scope_of_work:           site.scope_of_work || null,
+      frequency:               site.frequency || null,
+      service_days:            Array.isArray(site.service_days) ? site.service_days : [],
+      days_per_week:           parseInt(site.days_per_week)     || null,
+      access_details:          site.access_details              || null,
+      assigned_cleaner_id:     site.assigned_cleaner_id         || null,
+      rate_per_visit:          parseFloat(site.rate_per_visit)  || null,
+      cleaner_hourly_rate:     parseFloat(site.cleaner_hourly_rate) || null,
+      cleaner_hours_per_visit: parseFloat(site.cleaner_hours_per_visit) || null,
+      notes:                   site.notes     || null,
+      sort_order:              idx,
+    }))
+    await db.from('client_sites').insert(siteInserts)
+  }
 
   if (error) {
     return { error: { _form: [error.message] } }
@@ -129,7 +176,9 @@ export async function createClientAction(formData: FormData) {
 export async function updateClientAction(id: string, formData: FormData) {
   const supabase = createClient()
 
-  const serviceTypes = formData.getAll('service_type') as ServiceType[]
+  const isMultiSite    = formData.get('is_multi_site') === 'true'
+  const sitesData      = isMultiSite ? parseSites(formData.get('sites') as string | null) : []
+  const serviceTypes   = formData.getAll('service_type') as ServiceType[]
   const serviceDaysUpd = formData.getAll('service_days') as string[]
 
   const raw = {
@@ -142,7 +191,7 @@ export async function updateClientAction(id: string, formData: FormData) {
     state: formData.get('state') || 'QLD',
     postcode: formData.get('postcode'),
     service_type: serviceTypes,
-    frequency: formData.get('frequency'),
+    frequency: formData.get('frequency') || undefined,
     rate_per_visit: formData.get('rate_per_visit'),
     start_date: formData.get('start_date'),
     active: formData.get('active') === 'true',
@@ -167,9 +216,16 @@ export async function updateClientAction(id: string, formData: FormData) {
   try { additionalServicesUpd = JSON.parse(additionalServicesUpdRaw) } catch {}
 
   const { frequency, rate_per_visit, days_per_week: dpw, scope_of_work: sow, access_details: ad, assigned_cleaner_id: aci, ...rest } = parsed.data
-  const monthly_value = rate_per_visit
-    ? calculateMonthlyValue(rate_per_visit, frequency as FrequencyType)
+
+  const multiSiteMonthlyUpd = isMultiSite && sitesData.length > 0
+    ? sitesData.reduce((sum: number, s: any) => sum + calcSiteMonthlyValue(s), 0)
     : null
+
+  const monthly_value = isMultiSite
+    ? (multiSiteMonthlyUpd || null)
+    : rate_per_visit && frequency
+      ? calculateMonthlyValue(rate_per_visit, frequency as FrequencyType)
+      : null
   const annual_value = monthly_value ? calculateAnnualValue(monthly_value) : null
 
   const db2 = supabase as any
@@ -177,8 +233,9 @@ export async function updateClientAction(id: string, formData: FormData) {
     .from('clients')
     .update({
       ...rest,
-      frequency,
-      rate_per_visit: rate_per_visit || null,
+      is_multi_site:   isMultiSite,
+      frequency:       isMultiSite ? null : (frequency ?? null),
+      rate_per_visit:  isMultiSite ? null : (rate_per_visit || null),
       monthly_value,
       annual_value,
       start_date: rest.start_date || null,
@@ -189,20 +246,47 @@ export async function updateClientAction(id: string, formData: FormData) {
       suburb: rest.suburb || null,
       postcode: rest.postcode || null,
       notes: rest.notes || null,
-      cleaner_hourly_rate:     cleanerHourlyRateUpd,
-      cleaner_hours_per_visit: cleanerHoursPerVisitUpd,
+      cleaner_hourly_rate:     isMultiSite ? null : cleanerHourlyRateUpd,
+      cleaner_hours_per_visit: isMultiSite ? null : cleanerHoursPerVisitUpd,
       contract_expiry_date:    contractExpiryDateUpd,
-      service_days:            serviceDaysUpd,
-      days_per_week:           dpw ?? null,
-      scope_of_work:           sow || null,
-      access_details:          ad || null,
-      assigned_cleaner_id:     aci || null,
+      service_days:            isMultiSite ? [] : serviceDaysUpd,
+      days_per_week:           isMultiSite ? null : (dpw ?? null),
+      scope_of_work:           isMultiSite ? null : (sow || null),
+      access_details:          isMultiSite ? null : (ad || null),
+      assigned_cleaner_id:     isMultiSite ? null : (aci || null),
       additional_services:     additionalServicesUpd,
     })
     .eq('id', id)
 
   if (error) {
     return { error: { _form: [error.message] } }
+  }
+
+  // Sync sites: delete old, insert new
+  if (isMultiSite) {
+    await db2.from('client_sites').delete().eq('client_id', id)
+    if (sitesData.length > 0) {
+      const siteUpdates = sitesData.map((site: any, idx: number) => ({
+        client_id:               id,
+        site_name:               site.site_name || `Site ${idx + 1}`,
+        address:                 site.address   || null,
+        suburb:                  site.suburb    || null,
+        state:                   site.state     || 'QLD',
+        postcode:                site.postcode  || null,
+        scope_of_work:           site.scope_of_work || null,
+        frequency:               site.frequency || null,
+        service_days:            Array.isArray(site.service_days) ? site.service_days : [],
+        days_per_week:           parseInt(site.days_per_week)     || null,
+        access_details:          site.access_details              || null,
+        assigned_cleaner_id:     site.assigned_cleaner_id         || null,
+        rate_per_visit:          parseFloat(site.rate_per_visit)  || null,
+        cleaner_hourly_rate:     parseFloat(site.cleaner_hourly_rate) || null,
+        cleaner_hours_per_visit: parseFloat(site.cleaner_hours_per_visit) || null,
+        notes:                   site.notes     || null,
+        sort_order:              idx,
+      }))
+      await db2.from('client_sites').insert(siteUpdates)
+    }
   }
 
   revalidatePath('/clients')
