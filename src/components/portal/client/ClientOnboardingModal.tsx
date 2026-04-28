@@ -2,7 +2,8 @@
 
 import { useEffect, useState } from 'react'
 
-const STORAGE_KEY = 'delta_portal_onboarding_v1'
+const DISMISSED_KEY = 'delta_portal_onboarding_v1'   // localStorage — permanent
+const SESSION_KEY   = 'delta_portal_onboarding_seen'  // sessionStorage — per login
 
 const SCREENS = [
   {
@@ -45,8 +46,15 @@ export function ClientOnboardingModal() {
 
   useEffect(() => {
     setMounted(true)
-    const dismissed = localStorage.getItem(STORAGE_KEY)
-    if (!dismissed) setOpen(true)
+
+    const permanentlyDismissed = localStorage.getItem(DISMISSED_KEY)
+    const alreadySeenThisSession = sessionStorage.getItem(SESSION_KEY)
+
+    // Only auto-open once per login session, and never if permanently dismissed
+    if (!permanentlyDismissed && !alreadySeenThisSession) {
+      sessionStorage.setItem(SESSION_KEY, '1')
+      setOpen(true)
+    }
 
     function handleOpen() {
       setStep(0)
@@ -67,7 +75,7 @@ export function ClientOnboardingModal() {
   }
 
   function dismiss() {
-    localStorage.setItem(STORAGE_KEY, '1')
+    localStorage.setItem(DISMISSED_KEY, '1')
     setOpen(false)
   }
 
