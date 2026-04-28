@@ -20,7 +20,7 @@ export default async function AdminJobsPage() {
     (supabase as any).from('clients').select('id, business_name, address, suburb, frequency').eq('active', true).order('business_name'),
     (supabase as any)
       .from('job_assignments')
-      .select('*, clients(business_name), profiles(full_name)')
+      .select('*, clients(business_name), profiles(full_name), job_submissions(completed_by_role, completed_at)')
       .order('scheduled_date', { ascending: false })
       .limit(50),
   ])
@@ -54,29 +54,40 @@ export default async function AdminJobsPage() {
               {(jobs ?? []).length === 0 && (
                 <p className="text-sm text-gray-500 text-center py-8">No jobs assigned yet.</p>
               )}
-              {(jobs ?? []).map((job: any) => (
-                <div key={job.id} className="flex items-center justify-between px-5 py-3.5 gap-3">
-                  <div className="min-w-0">
-                    <p className="text-sm font-medium text-gray-800">
-                      {job.clients?.business_name ?? '—'}
-                    </p>
-                    <p className="text-xs text-gray-500 mt-0.5">
-                      {new Date(job.scheduled_date + 'T00:00:00').toLocaleDateString('en-AU', {
-                        weekday: 'short', day: 'numeric', month: 'short',
-                      })}
-                      {job.profiles?.full_name ? ` · ${job.profiles.full_name}` : ' · Unassigned'}
-                    </p>
+              {(jobs ?? []).map((job: any) => {
+                const sub = Array.isArray(job.job_submissions)
+                  ? (job.job_submissions[0] ?? null)
+                  : (job.job_submissions ?? null)
+                const cleanerCompleted =
+                  sub?.completed_at &&
+                  (sub?.completed_by_role === 'cleaner' || sub?.completed_by_role == null)
+                return (
+                  <div key={job.id} className="px-5 py-3.5 space-y-2">
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="min-w-0">
+                        <p className="text-sm font-medium text-gray-800">
+                          {job.clients?.business_name ?? '—'}
+                        </p>
+                        <p className="text-xs text-gray-500 mt-0.5">
+                          {new Date(job.scheduled_date + 'T00:00:00').toLocaleDateString('en-AU', {
+                            weekday: 'short', day: 'numeric', month: 'short',
+                          })}
+                          {job.profiles?.full_name ? ` · ${job.profiles.full_name}` : ' · Unassigned'}
+                        </p>
+                      </div>
+                      <span className={`text-xs font-semibold capitalize flex-shrink-0 ${STATUS_COLORS[job.status] ?? 'text-slate-400'}`}>
+                        {job.status.replace('_', ' ')}
+                      </span>
+                    </div>
+                    <MarkJobCompleteButton
+                      jobId={job.id}
+                      currentStatus={job.status}
+                      cleanerCompleted={!!cleanerCompleted}
+                      role="admin"
+                    />
                   </div>
-                  <div className="flex items-center gap-2 flex-shrink-0">
-                    {job.status !== 'completed' && (
-                      <MarkJobCompleteButton jobId={job.id} currentStatus={job.status} />
-                    )}
-                    <span className={`text-xs font-semibold capitalize ${STATUS_COLORS[job.status] ?? 'text-slate-400'}`}>
-                      {job.status.replace('_', ' ')}
-                    </span>
-                  </div>
-                </div>
-              ))}
+                )
+              })}
             </div>
           </Card>
         </div>

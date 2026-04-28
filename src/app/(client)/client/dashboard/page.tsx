@@ -64,7 +64,7 @@ export default async function ClientDashboardPage() {
     // Most recent completed job
     (supabase as any)
       .from('job_assignments')
-      .select('scheduled_date, job_submissions(completed_at, notes)')
+      .select('scheduled_date, job_submissions(completed_at, notes, completed_by_role)')
       .eq('client_id', clientId)
       .eq('status', 'completed')
       .order('scheduled_date', { ascending: false })
@@ -85,7 +85,7 @@ export default async function ClientDashboardPage() {
     // All service history
     (supabase as any)
       .from('job_assignments')
-      .select('id, scheduled_date, job_submissions(completed_at, notes)')
+      .select('id, scheduled_date, job_submissions(completed_at, notes, completed_by_role)')
       .eq('client_id', clientId)
       .eq('status', 'completed')
       .order('scheduled_date', { ascending: false })
@@ -184,16 +184,12 @@ export default async function ClientDashboardPage() {
             <div>
               <p className="text-2xl font-bold text-black">Completed</p>
               <p className="text-sm text-gray-500 mt-1">{formatDateAU(lastJob.scheduled_date)}</p>
-              {lastSub?.completed_at && (
+              {lastSub?.completed_at && lastSub?.completed_by_role === 'cleaner' && (
                 <p className="text-xs text-gray-400 mt-1">
                   Finished at {formatTimeAU(lastSub.completed_at)}
                 </p>
               )}
-              {lastSub?.notes && (
-                <p className="text-sm text-gray-600 italic mt-3 leading-relaxed">
-                  &ldquo;{lastSub.notes}&rdquo;
-                </p>
-              )}
+              {/* Never show cleaner notes or admin/manager identity to client */}
             </div>
           ) : (
             <p className="text-gray-400 text-sm">No previous cleans recorded.</p>
@@ -217,22 +213,20 @@ export default async function ClientDashboardPage() {
               const sub = Array.isArray(job.job_submissions)
                 ? (job.job_submissions[0] ?? null)
                 : (job.job_submissions ?? null)
-              const notes: string | null = sub?.notes ?? null
+              const byRole: string | null = sub?.completed_by_role ?? null
+              const cleanerDid = byRole === 'cleaner' || byRole == null
               return (
                 <div key={job.id} className="py-3.5 border-b border-gray-50 last:border-0">
                   <div className="flex items-start gap-3">
                     <div className="w-2 h-2 rounded-full bg-black flex-shrink-0 mt-1.5" />
                     <div className="min-w-0">
                       <p className="text-sm font-semibold text-black">{formatDateAU(job.scheduled_date)}</p>
-                      {sub?.completed_at && (
+                      {cleanerDid && sub?.completed_at ? (
                         <p className="text-xs text-gray-400 mt-0.5">
                           Completed {formatTimeAU(sub.completed_at)}
                         </p>
-                      )}
-                      {notes && (
-                        <p className="text-sm text-gray-500 italic mt-1.5 leading-relaxed">
-                          &ldquo;{notes}&rdquo;
-                        </p>
+                      ) : (
+                        <p className="text-xs text-gray-400 mt-0.5">Completed</p>
                       )}
                     </div>
                   </div>

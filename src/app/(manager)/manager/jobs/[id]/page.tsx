@@ -2,6 +2,7 @@ import { notFound, redirect } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
 import { ResolveButton } from '@/components/portal/manager/ResolveButton'
+import { MarkJobCompleteButton } from '@/components/team/MarkJobCompleteButton'
 import { MapPin, User, AlertTriangle, Link as LinkIcon } from 'lucide-react'
 import Image from 'next/image'
 
@@ -51,12 +52,18 @@ export default async function ManagerJobDetailPage({ params }: { params: { id: s
   const photos: string[] = submission?.photo_urls ?? []
   const videos: string[] = submission?.video_urls ?? []
 
+  const completedByRole: string | null = submission?.completed_by_role ?? null
+  const cleanerCompleted =
+    submission?.completed_at &&
+    (completedByRole === 'cleaner' || completedByRole == null)
+  const overrideCompleted = submission?.completed_at && (completedByRole === 'admin' || completedByRole === 'manager')
+
   // Determine started_at: prefer submission.started_at, fallback to submitted_at
   const startedAt = submission?.started_at ?? null
   const completedAt = submission?.completed_at ?? submission?.submitted_at ?? null
 
   let durationMin: number | null = null
-  if (startedAt && completedAt) {
+  if (startedAt && completedAt && cleanerCompleted) {
     durationMin = Math.round(
       (new Date(completedAt).getTime() - new Date(startedAt).getTime()) / 60000
     )
@@ -110,8 +117,34 @@ export default async function ManagerJobDetailPage({ params }: { params: { id: s
         </div>
       </div>
 
-      {/* Timing */}
-      {(startedAt || completedAt) && (
+      {/* Mark as Complete — manager override */}
+      {job.status !== 'completed' && (
+        <div className="bg-white rounded-2xl px-5 py-4 mb-4">
+          <p className="text-xs font-semibold text-gray-400 uppercase tracking-widest mb-3">Actions</p>
+          <MarkJobCompleteButton
+            jobId={job.id}
+            currentStatus={job.status}
+            cleanerCompleted={!!cleanerCompleted}
+            role="manager"
+          />
+        </div>
+      )}
+
+      {/* Override banner — if admin/manager completed it */}
+      {overrideCompleted && (
+        <div className="bg-gray-50 border border-gray-200 rounded-2xl px-5 py-4 mb-4">
+          <p className="text-xs font-semibold text-gray-400 uppercase tracking-widest mb-1">Completion</p>
+          <p className="text-sm font-semibold text-gray-800">
+            Marked as complete by {completedByRole}
+          </p>
+          {submission?.notes && (
+            <p className="text-xs text-gray-500 mt-1 italic">{submission.notes}</p>
+          )}
+        </div>
+      )}
+
+      {/* Timing — only shown for cleaner submissions */}
+      {cleanerCompleted && (startedAt || completedAt) && (
         <div className="bg-white rounded-2xl px-5 py-4 mb-4">
           <p className="text-xs font-semibold text-gray-400 uppercase tracking-widest mb-3">Timing</p>
           <div className="flex gap-6 flex-wrap">

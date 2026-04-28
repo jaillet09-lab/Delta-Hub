@@ -320,28 +320,49 @@ export async function startCleanForClientAction(clientId: string) {
   return { success: true, jobId }
 }
 
-// ─── Admin override: force-complete a job ─────────────────────────────────────
+// ─── Admin / Manager override: mark a job complete ───────────────────────────
 
-export async function adminMarkJobCompleteAction(jobId: string, note?: string) {
+export async function adminMarkJobCompleteAction(
+  jobId: string,
+  note?: string,
+  role: 'admin' | 'manager' = 'admin',
+) {
   const supabase = createClient()
   const now = new Date().toISOString()
 
-  // Upsert submission (creates if missing, updates if exists)
-  await (supabase as any)
+  // Check if a cleaner already submitted this job — never overwrite
+  const { data: existing } = await (supabase as any)
+    .from('job_submissions')
+    .select('id, completed_at, completed_by_role')
+    .eq('job_id', jobId)
+    .maybeSingle()
+
+  const cleanerAlreadyDone =
+    existing?.completed_at &&
+    (existing.completed_by_role === 'cleaner' || existing.completed_by_role == null)
+
+  if (cleanerAlreadyDone) {
+    return { error: 'Cleaner has already submitted this job — no override needed.' }
+  }
+
+  // Upsert override submission (won't touch real cleaner data)
+  const { error: subErr } = await (supabase as any)
     .from('job_submissions')
     .upsert(
       {
-        job_id:       jobId,
-        completed_at: now,
-        notes:        note ?? 'Marked complete by admin',
-        photo_urls:   [],
-        video_urls:   [],
+        job_id:              jobId,
+        completed_at:        now,
+        notes:               note || null,
+        photo_urls:          [],
+        video_urls:          [],
         checklist_completed: {},
+        completed_by_role:   role,
       },
       { onConflict: 'job_id' }
     )
 
-  // Mark job completed (no cleaner restriction)
+  if (subErr) return { error: subErr.message }
+
   const { error } = await (supabase as any)
     .from('job_assignments')
     .update({ status: 'completed' })
@@ -352,6 +373,7 @@ export async function adminMarkJobCompleteAction(jobId: string, note?: string) {
   revalidatePath('/team/jobs')
   revalidatePath('/manager/dashboard')
   revalidatePath('/cleaner/dashboard')
+  revalidatePath(`/manager/jobs/${jobId}`)
   return { success: true }
 }
 
