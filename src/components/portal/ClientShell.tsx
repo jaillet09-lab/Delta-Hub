@@ -1,6 +1,8 @@
 import Image from 'next/image'
 import Link from 'next/link'
 import { LogoutButton } from './LogoutButton'
+import { ClientOnboardingModal } from './client/ClientOnboardingModal'
+import { HowItWorksButton } from './client/HowItWorksButton'
 
 const NAV = [
   { href: '/client/dashboard',   label: 'Overview'    },
@@ -56,12 +58,16 @@ export function ClientShell({ children, clientName, userName, activePath }: Prop
                 </Link>
               )
             })}
-            <div className="flex items-center gap-3 border-l border-gray-200 pl-6">
+            <div className="flex items-center gap-4 border-l border-gray-200 pl-6">
+              <HowItWorksButton />
               <LogoutButton />
             </div>
           </div>
         </div>
       </header>
+
+      {/* Onboarding modal — shows on first login, reopenable via How it works */}
+      <ClientOnboardingModal />
 
       {/* Page content */}
       <main className="max-w-5xl mx-auto px-8 py-10">
