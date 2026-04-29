@@ -120,10 +120,12 @@ export default async function ManagerDashboard() {
   events.sort((a, b) => a.date !== b.date ? a.date.localeCompare(b.date) : a.clientName.localeCompare(b.clientName))
 
   // Group
-  const todayEvents    = events.filter(e => e.date === today)
-  const tomorrowEvents = events.filter(e => e.date === tomorrow)
-  const upcomingEvents = events.filter(e => e.date > tomorrow)
-  const recentJobs     = jobs
+  const todayAllEvents     = events.filter(e => e.date === today)
+  const todayEvents        = todayAllEvents.filter(e => e.job?.status !== 'completed')
+  const completedToday     = todayAllEvents.filter(e => e.job?.status === 'completed')
+  const tomorrowEvents     = events.filter(e => e.date === tomorrow)
+  const upcomingEvents     = events.filter(e => e.date > tomorrow)
+  const recentJobs         = jobs
     .filter((j: any) => j.scheduled_date < today)
     .sort((a: any, b: any) => b.scheduled_date.localeCompare(a.scheduled_date))
     .slice(0, 8)
@@ -134,17 +136,19 @@ export default async function ManagerDashboard() {
   }
 
   // Status helpers
-  function StatusBadge({ ev }: { ev: ScheduleEvent }) {
-    if (!ev.job) return null
+  function StatusBadge({ ev, showNotStarted = false }: { ev: ScheduleEvent; showNotStarted?: boolean }) {
     const job = ev.job
-    const sub = getSub(job)
-    if (job.status === 'completed')   return <span className="flex items-center gap-1 text-xs font-semibold text-emerald-600"><CheckCircle2 className="w-3.5 h-3.5" />Done</span>
+    if (!job) {
+      if (!showNotStarted) return null
+      return <span className="flex items-center gap-1 text-xs text-gray-400"><Circle className="w-3 h-3" />Not started</span>
+    }
+    if (job.status === 'completed')   return <span className="flex items-center gap-1 text-xs font-semibold text-emerald-600"><CheckCircle2 className="w-3.5 h-3.5" />Complete</span>
     if (job.status === 'flagged')     return <span className="flex items-center gap-1 text-xs font-semibold text-red-500"><AlertTriangle className="w-3.5 h-3.5" />Flagged</span>
-    if (job.status === 'in_progress') return <span className="flex items-center gap-1 text-xs font-semibold text-black"><span className="w-1.5 h-1.5 rounded-full bg-black animate-pulse" />Active</span>
-    return <span className="flex items-center gap-1 text-xs text-gray-400"><Circle className="w-3 h-3" />Pending</span>
+    if (job.status === 'in_progress') return <span className="flex items-center gap-1 text-xs font-semibold text-blue-500"><span className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse inline-block" />In progress</span>
+    return <span className="flex items-center gap-1 text-xs text-gray-400"><Circle className="w-3 h-3" />Not started</span>
   }
 
-  function CleanCard({ ev, dark = false }: { ev: ScheduleEvent; dark?: boolean }) {
+  function CleanCard({ ev, dark = false, showNotStarted = false }: { ev: ScheduleEvent; dark?: boolean; showNotStarted?: boolean }) {
     const href = ev.job ? `/manager/jobs/${ev.job.id}` : `/manager/clients/${ev.clientId}`
     const cleaner = ev.job?.profiles?.full_name ?? null
     return (
@@ -156,15 +160,15 @@ export default async function ManagerDashboard() {
               {cleaner ?? (ev.suburb ?? 'No cleaner assigned')}
             </p>
           </div>
-          <div className={dark ? '[&_span]:!text-gray-300 [&_svg]:!text-gray-400' : ''}>
-            <StatusBadge ev={ev} />
+          <div className={dark ? '[&_span]:!text-white [&_.text-gray-400]:!text-gray-400 [&_.text-emerald-600]:!text-emerald-400 [&_.text-blue-500]:!text-blue-300 [&_.text-red-500]:!text-red-400 [&_svg]:stroke-current' : ''}>
+            <StatusBadge ev={ev} showNotStarted={showNotStarted} />
           </div>
         </div>
       </Link>
     )
   }
 
-  const hasTodayOrTomorrow = todayEvents.length > 0 || tomorrowEvents.length > 0
+  const hasTodayOrTomorrow = todayEvents.length > 0 || completedToday.length > 0 || tomorrowEvents.length > 0
 
   return (
     <div className="space-y-7">
@@ -180,7 +184,7 @@ export default async function ManagerDashboard() {
             <p className="text-xs text-gray-400">{fmtDate(today)}</p>
           </div>
           <div className="space-y-2">
-            {todayEvents.map((ev, i) => <CleanCard key={i} ev={ev} dark />)}
+            {todayEvents.map((ev, i) => <CleanCard key={i} ev={ev} dark showNotStarted />)}
           </div>
         </section>
       )}
@@ -218,6 +222,19 @@ export default async function ManagerDashboard() {
               </div>
             ))
           })()}
+        </section>
+      )}
+
+      {/* COMPLETED TODAY — below upcoming */}
+      {completedToday.length > 0 && (
+        <section>
+          <div className="flex items-center justify-between mb-3">
+            <p className="text-xs font-semibold text-emerald-600 uppercase tracking-widest">Completed today</p>
+            <p className="text-xs text-gray-400">{completedToday.length} {completedToday.length === 1 ? 'job' : 'jobs'}</p>
+          </div>
+          <div className="space-y-2">
+            {completedToday.map((ev, i) => <CleanCard key={i} ev={ev} showNotStarted />)}
+          </div>
         </section>
       )}
 
