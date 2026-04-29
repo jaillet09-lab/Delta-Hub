@@ -44,14 +44,16 @@ export function ManagerAddCleanerForm() {
           autoComplete="family-name"
         />
       </div>
+
       <input
         className={inp}
         type="text"
         value={password}
         onChange={(e) => setPassword(e.target.value)}
-        placeholder="Temporary password (min 5 chars)"
+        placeholder="Password"
         autoComplete="new-password"
       />
+
       <button
         type="submit"
         disabled={submitting}
