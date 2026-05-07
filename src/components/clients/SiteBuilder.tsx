@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Plus, Trash2, ChevronDown, ChevronUp, MapPin } from 'lucide-react'
 import { FREQUENCY_LABELS } from '@/lib/constants'
 import { formatAUD } from '@/lib/formatters'
@@ -51,8 +51,13 @@ const inp = 'w-full bg-white border border-gray-200 text-gray-900 text-sm rounde
 const lbl = 'block text-xs font-medium text-gray-600 mb-1'
 
 export function SiteBuilder({ defaultSites, cleaners = [], onChange }: Props) {
-  const [sites, setSites]     = useState<SiteFormData[]>(defaultSites?.length ? defaultSites : [newSite()])
-  const [expanded, setExpanded] = useState<Set<string>>(new Set<string>(sites[0]?._localId ? [sites[0]._localId] : []))
+  const initialSites = defaultSites?.length ? defaultSites : [newSite()]
+  const [sites, setSites]     = useState<SiteFormData[]>(initialSites)
+  const [expanded, setExpanded] = useState<Set<string>>(new Set<string>(initialSites[0]?._localId ? [initialSites[0]._localId] : []))
+
+  // Sync initial state to parent so submit always has the correct data
+  // even if the user never edits any fields
+  useEffect(() => { onChange(initialSites) }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   function update(id: string, field: keyof SiteFormData, value: string | string[]) {
     const next = sites.map((s) => s._localId === id ? { ...s, [field]: value } : s)
@@ -220,11 +225,11 @@ export function SiteBuilder({ defaultSites, cleaners = [], onChange }: Props) {
                     </div>
                     <div>
                       <label className={lbl}>Cleaner $/hr</label>
-                      <input className={inp} type="number" step="0.5" min="0" value={site.cleaner_hourly_rate} onChange={(e) => update(site._localId, 'cleaner_hourly_rate', e.target.value)} placeholder="0" />
+                      <input className={inp} type="number" step="0.25" min="0" value={site.cleaner_hourly_rate} onChange={(e) => update(site._localId, 'cleaner_hourly_rate', e.target.value)} placeholder="0" />
                     </div>
                     <div>
                       <label className={lbl}>Hrs / visit</label>
-                      <input className={inp} type="number" step="0.5" min="0" value={site.cleaner_hours_per_visit} onChange={(e) => update(site._localId, 'cleaner_hours_per_visit', e.target.value)} placeholder="0" />
+                      <input className={inp} type="number" step="0.25" min="0" value={site.cleaner_hours_per_visit} onChange={(e) => update(site._localId, 'cleaner_hours_per_visit', e.target.value)} placeholder="0" />
                     </div>
                   </div>
                   {monthly > 0 && (

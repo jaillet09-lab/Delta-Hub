@@ -29,25 +29,29 @@ export async function createClientAction(formData: FormData) {
   const serviceTypes = formData.getAll('service_type') as ServiceType[]
   const serviceDays  = formData.getAll('service_days')  as string[]
 
+  // formData.get() returns null for fields absent from DOM (e.g. hidden for multi-site).
+  // Zod optional() accepts undefined but not null — convert all nulls to undefined.
+  const fget = (k: string) => (formData.get(k) as string | null) ?? undefined
+
   const raw = {
-    business_name: formData.get('business_name'),
-    contact_name: formData.get('contact_name'),
-    contact_email: formData.get('contact_email'),
-    contact_phone: formData.get('contact_phone'),
-    address: formData.get('address'),
-    suburb: formData.get('suburb'),
-    state: formData.get('state') || 'QLD',
-    postcode: formData.get('postcode'),
+    business_name: fget('business_name'),
+    contact_name: fget('contact_name'),
+    contact_email: fget('contact_email'),
+    contact_phone: fget('contact_phone'),
+    address: fget('address'),
+    suburb: fget('suburb'),
+    state: fget('state') || 'QLD',
+    postcode: fget('postcode'),
     service_type: serviceTypes,
-    frequency: formData.get('frequency') || undefined,
-    rate_per_visit: formData.get('rate_per_visit'),
-    start_date: formData.get('start_date'),
+    frequency: fget('frequency') || undefined,
+    rate_per_visit: fget('rate_per_visit'),
+    start_date: fget('start_date'),
     active: true,
-    notes: formData.get('notes'),
-    days_per_week: formData.get('days_per_week') || undefined,
-    scope_of_work: formData.get('scope_of_work'),
-    access_details: formData.get('access_details'),
-    assigned_cleaner_id: formData.get('assigned_cleaner_id') ?? undefined,
+    notes: fget('notes'),
+    days_per_week: fget('days_per_week') || undefined,
+    scope_of_work: fget('scope_of_work'),
+    access_details: fget('access_details'),
+    assigned_cleaner_id: fget('assigned_cleaner_id') || undefined,
   }
 
   const parsed = clientSchema.safeParse(raw)
@@ -181,26 +185,28 @@ export async function updateClientAction(id: string, formData: FormData) {
   const serviceTypes   = formData.getAll('service_type') as ServiceType[]
   const serviceDaysUpd = formData.getAll('service_days') as string[]
 
+  const fget = (k: string) => (formData.get(k) as string | null) ?? undefined
+
   const raw = {
-    business_name: formData.get('business_name'),
-    contact_name: formData.get('contact_name'),
-    contact_email: formData.get('contact_email'),
-    contact_phone: formData.get('contact_phone'),
-    address: formData.get('address'),
-    suburb: formData.get('suburb'),
-    state: formData.get('state') || 'QLD',
-    postcode: formData.get('postcode'),
+    business_name: fget('business_name'),
+    contact_name: fget('contact_name'),
+    contact_email: fget('contact_email'),
+    contact_phone: fget('contact_phone'),
+    address: fget('address'),
+    suburb: fget('suburb'),
+    state: fget('state') || 'QLD',
+    postcode: fget('postcode'),
     service_type: serviceTypes,
-    frequency: formData.get('frequency') || undefined,
-    rate_per_visit: formData.get('rate_per_visit'),
-    start_date: formData.get('start_date'),
+    frequency: fget('frequency') || undefined,
+    rate_per_visit: fget('rate_per_visit'),
+    start_date: fget('start_date'),
     active: formData.get('active') === 'true',
-    notes: formData.get('notes'),
-    contract_expiry_date: formData.get('contract_expiry_date'),
-    days_per_week: formData.get('days_per_week') || undefined,
-    scope_of_work: formData.get('scope_of_work'),
-    access_details: formData.get('access_details'),
-    assigned_cleaner_id: formData.get('assigned_cleaner_id') ?? undefined,
+    notes: fget('notes'),
+    contract_expiry_date: fget('contract_expiry_date'),
+    days_per_week: fget('days_per_week') || undefined,
+    scope_of_work: fget('scope_of_work'),
+    access_details: fget('access_details'),
+    assigned_cleaner_id: fget('assigned_cleaner_id') || undefined,
   }
 
   const parsed = clientSchema.safeParse(raw)

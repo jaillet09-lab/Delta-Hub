@@ -406,8 +406,8 @@ export function ClientForm({ defaultValues, defaultSites, action, submitLabel = 
           )}
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <Input label="Cleaner Hourly Rate ($)" name="cleaner_hourly_rate"    type="number" step="0.5" min="0" value={cleanerRate}  onChange={(e) => setCleanerRate(e.target.value)}  placeholder="e.g. 40" />
-          <Input label="Hours per Visit"          name="cleaner_hours_per_visit" type="number" step="0.5" min="0" value={cleanerHours} onChange={(e) => setCleanerHours(e.target.value)} placeholder="e.g. 2.5" />
+          <Input label="Cleaner Hourly Rate ($)" name="cleaner_hourly_rate"    type="number" step="0.25" min="0" value={cleanerRate}  onChange={(e) => setCleanerRate(e.target.value)}  placeholder="e.g. 40" />
+          <Input label="Hours per Visit"          name="cleaner_hours_per_visit" type="number" step="0.25" min="0" value={cleanerHours} onChange={(e) => setCleanerHours(e.target.value)} placeholder="e.g. 2.5" />
         </div>
         {breakdown && (
           <div className="grid grid-cols-3 gap-3 pt-3 border-t border-gray-100">
