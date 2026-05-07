@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/Button'
 import { Modal } from '@/components/ui/Modal'
 import { formatAUD, formatDate } from '@/lib/formatters'
 import { monthLabel } from '@/lib/calendar'
-import { deleteInvoiceAction, saveRecurringExpenseAction, saveExpenseAction, generateExpectedMonthAction } from '@/actions/invoices'
+import { deleteInvoiceAction, saveRecurringExpenseAction, saveExpenseAction, generateExpectedMonthAction, reprocessAllInvoicesAction } from '@/actions/invoices'
 import { deleteFinancialRecordAction } from '@/actions/financial'
 import { InvoiceUploadModal } from '@/components/financial/InvoiceUploadModal'
 import { MonthlyPLTable, type PLRow } from '@/components/financial/MonthlyPLTable'
@@ -71,9 +71,10 @@ export default function FinancialPage() {
   const [plRows,      setPlRows]      = useState<PLRow[]>([])
   const [expenses,    setExpenses]    = useState<any[]>([])
   const [loading,     setLoading]     = useState(true)
-  const [showUpload,  setShowUpload]  = useState(false)
-  const [showExpense, setShowExpense] = useState(false)
-  const [error,       setError]       = useState<string | null>(null)
+  const [showUpload,   setShowUpload]   = useState(false)
+  const [showExpense,  setShowExpense]  = useState(false)
+  const [error,        setError]        = useState<string | null>(null)
+  const [recalculating, setRecalculating] = useState(false)
 
   async function load(autoGenerate = false) {
     setLoading(true)
@@ -424,9 +425,25 @@ export default function FinancialPage() {
             <div className="space-y-4">
               <div className="flex items-center justify-between">
                 <p className="text-sm text-gray-500">{invoices.length} invoice{invoices.length !== 1 ? 's' : ''} uploaded</p>
-                <Button onClick={() => setShowUpload(true)}>
-                  <Upload className="w-4 h-4" /> Upload Invoice
-                </Button>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={async () => {
+                      setRecalculating(true)
+                      await reprocessAllInvoicesAction()
+                      await load()
+                      setRecalculating(false)
+                    }}
+                    disabled={recalculating || invoices.length === 0}
+                    title="Recalculate P&L from saved invoices"
+                    className="flex items-center gap-1.5 text-xs font-medium text-gray-500 hover:text-gray-800 border border-gray-200 rounded-lg px-3 py-1.5 hover:bg-gray-50 transition-colors disabled:opacity-40"
+                  >
+                    <RefreshCw className={`w-3.5 h-3.5 ${recalculating ? 'animate-spin' : ''}`} />
+                    {recalculating ? 'Recalculating…' : 'Recalculate P&L'}
+                  </button>
+                  <Button onClick={() => setShowUpload(true)}>
+                    <Upload className="w-4 h-4" /> Upload Invoice
+                  </Button>
+                </div>
               </div>
 
               {invoices.length === 0 ? (

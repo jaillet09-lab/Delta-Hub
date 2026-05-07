@@ -164,6 +164,112 @@ export async function saveInvoiceAction(input: SaveInvoiceInput) {
   return { success: true, invoiceId: invoice.id }
 }
 
+// ─── Reprocess P&L for all saved invoices (fixes stale/broken records) ───────
+
+export async function reprocessAllInvoicesAction() {
+  const supabase = createClient()
+
+  // Get all invoices with their matched line items + client data
+  const { data: invoices } = await (supabase as any)
+    .from('invoices')
+    .select('id, billing_month')
+
+  if (!invoices?.length) return { fixed: 0 }
+
+  let totalFixed = 0
+
+  for (const inv of invoices) {
+    const billingMonthDate = inv.billing_month as string   // "YYYY-MM-01"
+    const [yearStr, monthStr] = billingMonthDate.split('-')
+    const year  = parseInt(yearStr)
+    const month = parseInt(monthStr)
+
+    // Get matched lines for this invoice
+    const { data: lines } = await (supabase as any)
+      .from('invoice_line_items')
+      .select('client_id, hours, rate_per_hour, cost_ex_gst, gst, cost_incl_gst')
+      .eq('invoice_id', inv.id)
+      .not('client_id', 'is', null)
+
+    if (!lines?.length) continue
+
+    const clientIds = Array.from(new Set(lines.map((l: any) => l.client_id)))
+
+    const { data: clients } = await (supabase as any)
+      .from('clients')
+      .select('id, rate_per_visit, frequency, start_date, service_days, cleaner_hourly_rate, cleaner_hours_per_visit')
+      .in('id', clientIds)
+
+    if (!clients?.length) continue
+
+    const plUpdates = []
+
+    for (const client of clients) {
+      // Sum all lines for this client in this invoice
+      const clientLines = lines.filter((l: any) => l.client_id === client.id)
+      const totalHours      = clientLines.reduce((s: number, l: any) => s + (l.hours ?? 0), 0)
+      const totalCostEx     = clientLines.reduce((s: number, l: any) => s + (l.cost_ex_gst ?? 0), 0)
+      const totalGST        = clientLines.reduce((s: number, l: any) => s + (l.gst ?? 0), 0)
+      const totalCostIncl   = clientLines.reduce((s: number, l: any) => s + (l.cost_incl_gst ?? 0), 0)
+      const ratePerHour     = clientLines[0]?.rate_per_hour ?? null
+
+      const startDate   = client.start_date ? new Date(client.start_date) : new Date()
+      const serviceDays: string[] = Array.isArray(client.service_days) ? client.service_days : []
+      const ratePerVisit = client.rate_per_visit ?? 0
+
+      const visits = calculateMonthlyVisits(year, month, client.frequency ?? 'monthly', serviceDays, startDate, ratePerVisit)
+
+      const profit    = round(visits.income_ex_gst - totalCostEx)
+      const marginPct = visits.income_ex_gst > 0
+        ? round((profit / visits.income_ex_gst) * 100)
+        : null
+
+      const expectedHours  = client.cleaner_hours_per_visit != null
+        ? round((client.cleaner_hours_per_visit ?? 0) * visits.count)
+        : null
+      const expectedCostEx = expectedHours != null && client.cleaner_hourly_rate
+        ? round(expectedHours * client.cleaner_hourly_rate)
+        : null
+      const hoursVariance  = totalHours > 0 && expectedHours != null
+        ? round(totalHours - expectedHours)
+        : null
+      const costVariance   = expectedCostEx != null
+        ? round(totalCostEx - expectedCostEx)
+        : null
+
+      plUpdates.push({
+        client_id:             client.id,
+        month:                 billingMonthDate,
+        invoice_id:            inv.id,
+        service_count:         visits.count,
+        income_ex_gst:         visits.income_ex_gst,
+        rate_per_visit:        ratePerVisit,
+        cleaner_hours:         totalHours || null,
+        cleaner_rate_per_hour: ratePerHour,
+        cleaner_cost_ex_gst:   totalCostEx,
+        cleaner_gst:           totalGST,
+        cleaner_cost_incl_gst: totalCostIncl,
+        profit,
+        margin_pct:            marginPct,
+        expected_hours:        expectedHours,
+        expected_cost_ex_gst:  expectedCostEx,
+        hours_variance:        hoursVariance,
+        cost_variance:         costVariance,
+      })
+    }
+
+    if (plUpdates.length > 0) {
+      await (supabase as any)
+        .from('client_monthly_financials')
+        .upsert(plUpdates, { onConflict: 'client_id,month' })
+      totalFixed += plUpdates.length
+    }
+  }
+
+  revalidatePath('/financial')
+  return { fixed: totalFixed }
+}
+
 // ─── Delete invoice + cascade ─────────────────────────────────────────────────
 
 export async function deleteInvoiceAction(id: string) {
