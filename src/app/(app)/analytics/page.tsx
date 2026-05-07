@@ -95,17 +95,32 @@ function generateInsights(activeClients: any[], mrr: number): Insight[] {
 export default async function AnalyticsPage() {
   const supabase = createClient()
 
-  const [clientsRes, financialRes, expensesRes, surveysRes] = await Promise.all([
+  const [clientsRes, financialRes, expensesRes, surveysRes, plRes] = await Promise.all([
     supabase.from('clients').select('*').order('start_date'),
     supabase.from('financial_records').select('record_date, amount, type').eq('type', 'income').order('record_date'),
     supabase.from('financial_records').select('record_date, amount, type').eq('type', 'expense').order('record_date'),
     supabase.from('surveys').select('quality_score, reliability_score, communication_score, value_score, submitted_at, client_id').order('submitted_at', { ascending: false }),
+    (supabase as any).from('client_monthly_financials').select('month, cleaner_cost_ex_gst, income_ex_gst').order('month', { ascending: false }),
   ])
 
-  const clients        = clientsRes.data  || []
+  const clients          = clientsRes.data  || []
   const financialRecords = financialRes.data || []
-  const expenseRecords = expensesRes.data  || []
-  const surveys        = surveysRes.data   || []
+  const expenseRecords   = expensesRes.data  || []
+  const surveys          = surveysRes.data   || []
+  const plRows: any[]    = plRes.data        || []
+
+  // Group P&L rows by month and sum cleaner costs per month
+  const plByMonth: Record<string, { cleanerCost: number; revenue: number }> = {}
+  for (const r of plRows) {
+    const mk = (r.month as string)?.substring(0, 7) ?? ''
+    if (!plByMonth[mk]) plByMonth[mk] = { cleanerCost: 0, revenue: 0 }
+    plByMonth[mk].cleanerCost += r.cleaner_cost_ex_gst ?? 0
+    plByMonth[mk].revenue     += r.income_ex_gst      ?? 0
+  }
+  // Latest invoiced month's cleaner cost (real invoices only)
+  const invoicedMonths = Object.keys(plByMonth).sort().reverse()
+  const latestInvoicedMonth = invoicedMonths[0] ?? null
+  const latestCleanerCost   = latestInvoicedMonth ? plByMonth[latestInvoicedMonth].cleanerCost : 0
 
   const activeClients = clients.filter(c => c.active)
   const mrr = activeClients.reduce((s, c) => s + (c.monthly_value || 0), 0)
@@ -115,7 +130,12 @@ export default async function AnalyticsPage() {
   const grossProfit    = mrr - totalLabour
   const grossMarginPct = mrr > 0 && totalLabour > 0 ? (grossProfit / mrr) * 100 : null
 
-  const totalExpenses = expenseRecords.reduce((s, r) => s + r.amount, 0)
+  const manualExpenses = expenseRecords.reduce((s, r) => s + r.amount, 0)
+  // Total expenses = latest month's cleaner invoice cost + any manual overhead expenses
+  const totalExpenses  = latestCleanerCost + manualExpenses
+  const expenseLabel   = latestInvoicedMonth
+    ? `Cleaner costs · ${latestInvoicedMonth}${manualExpenses > 0 ? ' + overhead' : ''}`
+    : manualExpenses > 0 ? 'Recorded overhead expenses' : 'No expenses recorded yet'
 
   const monthlyRevenue = Array.from({ length: 12 }, (_, i) => {
     const d = subMonths(new Date(), 11 - i)
@@ -162,7 +182,7 @@ export default async function AnalyticsPage() {
             { label: 'MRR',             value: formatAUD(mrr),      sub: 'Monthly recurring revenue' },
             { label: 'ARR',             value: formatAUD(arr),      sub: 'Annualised revenue' },
             { label: 'Gross Profit/Mo', value: totalLabour > 0 ? formatAUD(grossProfit) : '—', sub: totalLabour > 0 && grossMarginPct != null ? `${grossMarginPct.toFixed(0)}% margin` : 'Add cleaner costs to unlock' },
-            { label: 'Total Expenses',  value: formatAUD(totalExpenses), sub: 'All recorded expenses' },
+            { label: 'Total Expenses',  value: formatAUD(totalExpenses), sub: expenseLabel },
           ].map(kpi => (
             <div key={kpi.label} className="bg-white border border-gray-100 shadow-sm rounded-xl p-4">
               <p className="text-xs font-medium text-gray-400 uppercase tracking-wider">{kpi.label}</p>
