@@ -1,8 +1,16 @@
 import { type NextRequest, NextResponse } from 'next/server'
 import { updateSession } from '@/lib/supabase/middleware'
+import { PORTAL_LOGIN } from '@/lib/supabase/portal'
 
-// Unauthenticated-accessible routes
-const PUBLIC_ROUTES = ['/login', '/api/cleaner-calendar', '/survey']
+// Unauthenticated-accessible routes (all portal login pages + misc public routes)
+const PUBLIC_ROUTES = [
+  '/login',
+  '/manager/login',
+  '/cleaner/login',
+  '/client/login',
+  '/api/cleaner-calendar',
+  '/survey',
+]
 
 /** Where each role lands after login */
 const ROLE_HOME: Record<string, string> = {
@@ -29,15 +37,16 @@ function redirectWithCookies(url: URL, supabaseResponse: NextResponse): NextResp
 }
 
 export async function middleware(request: NextRequest) {
-  const { supabaseResponse, user } = await updateSession(request)
+  const { supabaseResponse, user, portal } = await updateSession(request)
   const { pathname } = request.nextUrl
 
-  const isPublicRoute = PUBLIC_ROUTES.some((r) => pathname.startsWith(r))
+  const isPublicRoute = PUBLIC_ROUTES.some((r) => pathname === r || pathname.startsWith(r + '/'))
 
-  // Not authenticated → login
+  // Not authenticated → redirect to this portal's login page
   if (!user && !isPublicRoute) {
+    const loginPath = PORTAL_LOGIN[portal]
     const loginUrl = request.nextUrl.clone()
-    loginUrl.pathname = '/login'
+    loginUrl.pathname = loginPath
     loginUrl.searchParams.set('redirectTo', pathname)
     return redirectWithCookies(loginUrl, supabaseResponse)
   }
@@ -46,14 +55,15 @@ export async function middleware(request: NextRequest) {
     const role: string = (user.user_metadata?.role as string) ?? 'admin'
     const home = ROLE_HOME[role] ?? '/dashboard'
 
-    // On login page → redirect to role-appropriate home
-    if (pathname === '/login') {
+    // On any login page → redirect to role-appropriate home
+    const isAnyLoginPage = PUBLIC_ROUTES.slice(0, 4).some((r) => pathname === r)
+    if (isAnyLoginPage) {
       const dest = request.nextUrl.clone()
       dest.pathname = home
       return redirectWithCookies(dest, supabaseResponse)
     }
 
-    // API routes are allowed for any authenticated user — they handle their own auth internally
+    // API routes are allowed for any authenticated user — they handle auth internally
     if (pathname.startsWith('/api/')) return supabaseResponse
 
     // Non-admin visiting a route outside their allowed prefix → send home

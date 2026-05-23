@@ -30,6 +30,79 @@ export interface SaveInvoiceInput {
   notes?: string | null
 }
 
+// ─── Income helpers ───────────────────────────────────────────────────────────
+
+/**
+ * Calculate income for a single-site client.
+ * clampToMonth: if the client's start_date is after the billing month,
+ * use the billing month start instead (invoice = proof of service that month).
+ */
+function calcSingleSiteIncome(
+  client: any,
+  year: number,
+  month: number,
+  clampToMonth = false,
+): { income_ex_gst: number; count: number; rate_per_visit: number } {
+  const billingMonthStart = new Date(year, month - 1, 1)
+  const billingMonthEnd   = new Date(year, month, 0)           // last day of billing month
+  const rawStart  = client.start_date ? new Date(client.start_date) : new Date()
+  // Only clamp when the client's start_date is entirely in a FUTURE month vs the billing month.
+  // If start_date is within or before the billing month, respect it as-is.
+  const startDate = clampToMonth && rawStart > billingMonthEnd ? billingMonthStart : rawStart
+  const serviceDays: string[] = Array.isArray(client.service_days) ? client.service_days : []
+  const ratePerVisit = client.rate_per_visit ?? 0
+  const v = calculateMonthlyVisits(year, month, client.frequency ?? 'monthly', serviceDays, startDate, ratePerVisit)
+  return { income_ex_gst: v.income_ex_gst, count: v.count, rate_per_visit: ratePerVisit }
+}
+
+/**
+ * Calculate income for a multi-site client by summing across all its sites.
+ * Always clamps to billing month start (multi-site clients don't track start_date per site).
+ */
+function calcMultiSiteIncome(
+  sites: any[],
+  year: number,
+  month: number,
+  monthlyValueFallback: number,
+): { income_ex_gst: number; count: number; rate_per_visit: number } {
+  if (!sites || sites.length === 0) {
+    return { income_ex_gst: monthlyValueFallback, count: 0, rate_per_visit: 0 }
+  }
+  const billingMonthStart = new Date(year, month - 1, 1)
+  let totalIncome = 0
+  let totalCount  = 0
+  for (const site of sites) {
+    const serviceDays: string[] = Array.isArray(site.service_days) ? site.service_days : []
+    const v = calculateMonthlyVisits(
+      year, month,
+      site.frequency ?? 'monthly',
+      serviceDays,
+      billingMonthStart,
+      site.rate_per_visit ?? 0,
+    )
+    totalIncome += v.income_ex_gst
+    totalCount  += v.count
+  }
+  return { income_ex_gst: round(totalIncome), count: totalCount, rate_per_visit: 0 }
+}
+
+/** Fetch sites for a set of multi-site client IDs. Returns map: client_id → sites[] */
+async function fetchSitesMap(supabase: any, clientIds: string[]): Promise<Record<string, any[]>> {
+  if (!clientIds.length) return {}
+  const { data: sites } = await supabase
+    .from('client_sites')
+    .select('client_id, rate_per_visit, frequency, service_days, cleaner_hourly_rate, cleaner_hours_per_visit')
+    .in('client_id', clientIds)
+  const map: Record<string, any[]> = {}
+  for (const s of sites ?? []) {
+    if (!map[s.client_id]) map[s.client_id] = []
+    map[s.client_id].push(s)
+  }
+  return map
+}
+
+// ─── Save confirmed invoice + lines ──────────────────────────────────────────
+
 export async function saveInvoiceAction(input: SaveInvoiceInput) {
   const supabase = createClient()
 
@@ -86,10 +159,14 @@ export async function saveInvoiceAction(input: SaveInvoiceInput) {
   if (matchedClientIds.length > 0) {
     const { data: clients } = await (supabase as any)
       .from('clients')
-      .select('id, business_name, rate_per_visit, frequency, start_date, service_days, cleaner_hourly_rate, cleaner_hours_per_visit')
+      .select('id, business_name, is_multi_site, monthly_value, rate_per_visit, frequency, start_date, service_days, cleaner_hourly_rate, cleaner_hours_per_visit')
       .in('id', matchedClientIds)
 
     if (clients && clients.length > 0) {
+      // Pre-fetch sites for any multi-site clients
+      const multiSiteIds = clients.filter((c: any) => c.is_multi_site).map((c: any) => c.id as string)
+      const sitesMap = await fetchSitesMap(supabase as any, multiSiteIds)
+
       const plInserts = []
 
       for (const client of clients) {
@@ -97,12 +174,10 @@ export async function saveInvoiceAction(input: SaveInvoiceInput) {
         const line = input.lines.find(l => l.client_id === client.id)
         if (!line) continue
 
-        // Calendar-accurate revenue
-        const startDate = client.start_date ? new Date(client.start_date) : new Date()
-        const serviceDays: string[] = Array.isArray(client.service_days) ? client.service_days : []
-        const ratePerVisit = client.rate_per_visit ?? 0
-
-        const visits = calculateMonthlyVisits(year, month, client.frequency ?? 'monthly', serviceDays, startDate, ratePerVisit)
+        // Income: sum across sites for multi-site, calendar visits for single-site
+        const inc = client.is_multi_site
+          ? calcMultiSiteIncome(sitesMap[client.id] ?? [], year, month, client.monthly_value ?? 0)
+          : calcSingleSiteIncome(client, year, month, true /* clamp to billing month */)
 
         // Costs (ex GST)
         const cleanerCostEx   = line.cost_ex_gst ?? 0
@@ -110,22 +185,46 @@ export async function saveInvoiceAction(input: SaveInvoiceInput) {
         const cleanerCostIncl = line.cost_incl_gst ?? 0
 
         // P&L
-        const profit    = round(visits.income_ex_gst - cleanerCostEx)
-        const marginPct = visits.income_ex_gst > 0
-          ? round((profit / visits.income_ex_gst) * 100)
+        const profit    = round(inc.income_ex_gst - cleanerCostEx)
+        const marginPct = inc.income_ex_gst > 0
+          ? round((profit / inc.income_ex_gst) * 100)
           : null
 
         // Variance vs expected (from client profile)
-        const expectedHours   = (client.cleaner_hours_per_visit ?? null) !== null
-          ? round((client.cleaner_hours_per_visit ?? 0) * visits.count)
-          : null
-        const expectedCostEx  = expectedHours !== null && client.cleaner_hourly_rate
-          ? round(expectedHours * client.cleaner_hourly_rate)
-          : null
-        const hoursVariance   = line.hours != null && expectedHours != null
+        // For multi-site, aggregate expected across sites
+        let expectedHours: number | null  = null
+        let expectedCostEx: number | null = null
+        if (client.is_multi_site) {
+          const sites = sitesMap[client.id] ?? []
+          if (sites.length > 0) {
+            let eh = 0; let ec = 0; let hasData = false
+            for (const site of sites) {
+              const v = calculateMonthlyVisits(year, month, site.frequency ?? 'monthly',
+                Array.isArray(site.service_days) ? site.service_days : [],
+                new Date(year, month - 1, 1), site.rate_per_visit ?? 0)
+              if (site.cleaner_hours_per_visit != null) {
+                eh += round(site.cleaner_hours_per_visit * v.count)
+                hasData = true
+              }
+              if (site.cleaner_hourly_rate && site.cleaner_hours_per_visit != null) {
+                ec += round(site.cleaner_hours_per_visit * v.count * site.cleaner_hourly_rate)
+              }
+            }
+            if (hasData) { expectedHours = round(eh); expectedCostEx = round(ec) }
+          }
+        } else {
+          expectedHours  = client.cleaner_hours_per_visit != null
+            ? round((client.cleaner_hours_per_visit ?? 0) * inc.count)
+            : null
+          expectedCostEx = expectedHours !== null && client.cleaner_hourly_rate
+            ? round(expectedHours * client.cleaner_hourly_rate)
+            : null
+        }
+
+        const hoursVariance = line.hours != null && expectedHours != null
           ? round(line.hours - expectedHours)
           : null
-        const costVariance    = expectedCostEx != null
+        const costVariance  = expectedCostEx != null
           ? round(cleanerCostEx - expectedCostEx)
           : null
 
@@ -133,9 +232,9 @@ export async function saveInvoiceAction(input: SaveInvoiceInput) {
           client_id:             client.id,
           month:                 billingMonthDate,
           invoice_id:            invoice.id,
-          service_count:         visits.count,
-          income_ex_gst:         visits.income_ex_gst,
-          rate_per_visit:        ratePerVisit,
+          service_count:         inc.count,
+          income_ex_gst:         inc.income_ex_gst,
+          rate_per_visit:        inc.rate_per_visit,
           cleaner_hours:         line.hours,
           cleaner_rate_per_hour: line.rate_per_hour,
           cleaner_cost_ex_gst:   cleanerCostEx,
@@ -151,7 +250,6 @@ export async function saveInvoiceAction(input: SaveInvoiceInput) {
       }
 
       if (plInserts.length > 0) {
-        // Upsert: if same client+month already exists, replace it
         await (supabase as any)
           .from('client_monthly_financials')
           .upsert(plInserts, { onConflict: 'client_id,month' })
@@ -169,7 +267,6 @@ export async function saveInvoiceAction(input: SaveInvoiceInput) {
 export async function reprocessAllInvoicesAction() {
   const supabase = createClient()
 
-  // Get all invoices with their matched line items + client data
   const { data: invoices } = await (supabase as any)
     .from('invoices')
     .select('id, billing_month')
@@ -184,7 +281,6 @@ export async function reprocessAllInvoicesAction() {
     const year  = parseInt(yearStr)
     const month = parseInt(monthStr)
 
-    // Get matched lines for this invoice
     const { data: lines } = await (supabase as any)
       .from('invoice_line_items')
       .select('client_id, hours, rate_per_hour, cost_ex_gst, gst, cost_incl_gst')
@@ -193,47 +289,70 @@ export async function reprocessAllInvoicesAction() {
 
     if (!lines?.length) continue
 
-    const clientIds = Array.from(new Set(lines.map((l: any) => l.client_id)))
+    const clientIds = Array.from(new Set(lines.map((l: any) => l.client_id as string)))
 
     const { data: clients } = await (supabase as any)
       .from('clients')
-      .select('id, rate_per_visit, frequency, start_date, service_days, cleaner_hourly_rate, cleaner_hours_per_visit')
+      .select('id, is_multi_site, monthly_value, rate_per_visit, frequency, start_date, service_days, cleaner_hourly_rate, cleaner_hours_per_visit')
       .in('id', clientIds)
 
     if (!clients?.length) continue
 
+    // Pre-fetch sites for multi-site clients
+    const multiSiteIds = clients.filter((c: any) => c.is_multi_site).map((c: any) => c.id as string)
+    const sitesMap = await fetchSitesMap(supabase as any, multiSiteIds)
+
     const plUpdates = []
 
     for (const client of clients) {
-      // Sum all lines for this client in this invoice
-      const clientLines = lines.filter((l: any) => l.client_id === client.id)
-      const totalHours      = clientLines.reduce((s: number, l: any) => s + (l.hours ?? 0), 0)
-      const totalCostEx     = clientLines.reduce((s: number, l: any) => s + (l.cost_ex_gst ?? 0), 0)
-      const totalGST        = clientLines.reduce((s: number, l: any) => s + (l.gst ?? 0), 0)
-      const totalCostIncl   = clientLines.reduce((s: number, l: any) => s + (l.cost_incl_gst ?? 0), 0)
-      const ratePerHour     = clientLines[0]?.rate_per_hour ?? null
+      const clientLines   = lines.filter((l: any) => l.client_id === client.id)
+      const totalHours    = clientLines.reduce((s: number, l: any) => s + (l.hours ?? 0), 0)
+      const totalCostEx   = clientLines.reduce((s: number, l: any) => s + (l.cost_ex_gst ?? 0), 0)
+      const totalGST      = clientLines.reduce((s: number, l: any) => s + (l.gst ?? 0), 0)
+      const totalCostIncl = clientLines.reduce((s: number, l: any) => s + (l.cost_incl_gst ?? 0), 0)
+      const ratePerHour   = clientLines[0]?.rate_per_hour ?? null
 
-      const startDate   = client.start_date ? new Date(client.start_date) : new Date()
-      const serviceDays: string[] = Array.isArray(client.service_days) ? client.service_days : []
-      const ratePerVisit = client.rate_per_visit ?? 0
+      const inc = client.is_multi_site
+        ? calcMultiSiteIncome(sitesMap[client.id] ?? [], year, month, client.monthly_value ?? 0)
+        : calcSingleSiteIncome(client, year, month, true)
 
-      const visits = calculateMonthlyVisits(year, month, client.frequency ?? 'monthly', serviceDays, startDate, ratePerVisit)
-
-      const profit    = round(visits.income_ex_gst - totalCostEx)
-      const marginPct = visits.income_ex_gst > 0
-        ? round((profit / visits.income_ex_gst) * 100)
+      const profit    = round(inc.income_ex_gst - totalCostEx)
+      const marginPct = inc.income_ex_gst > 0
+        ? round((profit / inc.income_ex_gst) * 100)
         : null
 
-      const expectedHours  = client.cleaner_hours_per_visit != null
-        ? round((client.cleaner_hours_per_visit ?? 0) * visits.count)
-        : null
-      const expectedCostEx = expectedHours != null && client.cleaner_hourly_rate
-        ? round(expectedHours * client.cleaner_hourly_rate)
-        : null
-      const hoursVariance  = totalHours > 0 && expectedHours != null
+      let expectedHours: number | null  = null
+      let expectedCostEx: number | null = null
+      if (client.is_multi_site) {
+        const sites = sitesMap[client.id] ?? []
+        if (sites.length > 0) {
+          let eh = 0; let ec = 0; let hasData = false
+          for (const site of sites) {
+            const v = calculateMonthlyVisits(year, month, site.frequency ?? 'monthly',
+              Array.isArray(site.service_days) ? site.service_days : [],
+              new Date(year, month - 1, 1), site.rate_per_visit ?? 0)
+            if (site.cleaner_hours_per_visit != null) {
+              eh += round(site.cleaner_hours_per_visit * v.count); hasData = true
+            }
+            if (site.cleaner_hourly_rate && site.cleaner_hours_per_visit != null) {
+              ec += round(site.cleaner_hours_per_visit * v.count * site.cleaner_hourly_rate)
+            }
+          }
+          if (hasData) { expectedHours = round(eh); expectedCostEx = round(ec) }
+        }
+      } else {
+        expectedHours  = client.cleaner_hours_per_visit != null
+          ? round((client.cleaner_hours_per_visit ?? 0) * inc.count)
+          : null
+        expectedCostEx = expectedHours != null && client.cleaner_hourly_rate
+          ? round(expectedHours * client.cleaner_hourly_rate)
+          : null
+      }
+
+      const hoursVariance = totalHours > 0 && expectedHours != null
         ? round(totalHours - expectedHours)
         : null
-      const costVariance   = expectedCostEx != null
+      const costVariance  = expectedCostEx != null
         ? round(totalCostEx - expectedCostEx)
         : null
 
@@ -241,9 +360,9 @@ export async function reprocessAllInvoicesAction() {
         client_id:             client.id,
         month:                 billingMonthDate,
         invoice_id:            inv.id,
-        service_count:         visits.count,
-        income_ex_gst:         visits.income_ex_gst,
-        rate_per_visit:        ratePerVisit,
+        service_count:         inc.count,
+        income_ex_gst:         inc.income_ex_gst,
+        rate_per_visit:        inc.rate_per_visit,
         cleaner_hours:         totalHours || null,
         cleaner_rate_per_hour: ratePerHour,
         cleaner_cost_ex_gst:   totalCostEx,
@@ -274,14 +393,12 @@ export async function reprocessAllInvoicesAction() {
 
 export async function deleteInvoiceAction(id: string) {
   const supabase = createClient()
-  // Get the billing month first so we can clean up client_monthly_financials
   const { data: inv } = await (supabase as any)
     .from('invoices').select('billing_month').eq('id', id).single()
 
   const { error } = await (supabase as any).from('invoices').delete().eq('id', id)
   if (error) return { error: error.message }
 
-  // Clean up orphaned monthly financials for this invoice
   if (inv?.billing_month) {
     await (supabase as any)
       .from('client_monthly_financials')
@@ -343,13 +460,8 @@ export async function deleteFinancialRecord(id: string) {
 }
 
 // ─── Auto-generate expected P&L for current month from client rates ───────────
-// Called automatically when no invoice has been uploaded for the current month.
-// Uses the same calculateMonthlyVisits logic as real invoices so numbers match.
-// invoice_id stays null → signals "projected, not yet confirmed by invoice".
-// When a real invoice is uploaded, the upsert on (client_id, month) replaces these.
 
 export async function generateExpectedMonthAction(monthStr: string) {
-  // monthStr = 'YYYY-MM'
   const supabase = createClient()
   const [yearStr, mStr] = monthStr.split('-')
   const year  = parseInt(yearStr)
@@ -364,45 +476,65 @@ export async function generateExpectedMonthAction(monthStr: string) {
     .not('invoice_id', 'is', null)
     .limit(1)
 
-  if (existing && existing.length > 0) {
-    // Real invoice data exists — leave it alone
-    return { skipped: true }
-  }
+  if (existing && existing.length > 0) return { skipped: true }
 
-  // Get all active clients
   const { data: clients, error: clientErr } = await (supabase as any)
     .from('clients')
-    .select('id, rate_per_visit, frequency, start_date, service_days, cleaner_hourly_rate, cleaner_hours_per_visit, monthly_value')
+    .select('id, is_multi_site, monthly_value, rate_per_visit, frequency, start_date, service_days, cleaner_hourly_rate, cleaner_hours_per_visit')
     .eq('active', true)
 
   if (clientErr || !clients?.length) return { skipped: true }
 
+  // Pre-fetch sites for multi-site clients
+  const multiSiteIds = clients.filter((c: any) => c.is_multi_site).map((c: any) => c.id as string)
+  const sitesMap = await fetchSitesMap(supabase as any, multiSiteIds)
+
   const rows = []
   for (const client of clients) {
-    const startDate   = client.start_date ? new Date(client.start_date) : new Date()
-    const serviceDays: string[] = Array.isArray(client.service_days) ? client.service_days : []
-    const ratePerVisit = client.rate_per_visit ?? 0
+    const inc = client.is_multi_site
+      ? calcMultiSiteIncome(sitesMap[client.id] ?? [], year, month, client.monthly_value ?? 0)
+      : calcSingleSiteIncome(client, year, month, false /* respect start_date for projections */)
 
-    const visits = calculateMonthlyVisits(year, month, client.frequency ?? 'monthly', serviceDays, startDate, ratePerVisit)
-
-    const expectedHours  = client.cleaner_hours_per_visit != null
-      ? round(client.cleaner_hours_per_visit * visits.count)
-      : null
-    const expectedCostEx = expectedHours != null && client.cleaner_hourly_rate
-      ? round(expectedHours * client.cleaner_hourly_rate)
-      : null
+    // Expected cost: for multi-site, aggregate from sites
+    let expectedHours: number | null  = null
+    let expectedCostEx: number | null = null
+    if (client.is_multi_site) {
+      const sites = sitesMap[client.id] ?? []
+      if (sites.length > 0) {
+        let eh = 0; let ec = 0; let hasData = false
+        for (const site of sites) {
+          const v = calculateMonthlyVisits(year, month, site.frequency ?? 'monthly',
+            Array.isArray(site.service_days) ? site.service_days : [],
+            new Date(year, month - 1, 1), site.rate_per_visit ?? 0)
+          if (site.cleaner_hours_per_visit != null) {
+            eh += round(site.cleaner_hours_per_visit * v.count); hasData = true
+          }
+          if (site.cleaner_hourly_rate && site.cleaner_hours_per_visit != null) {
+            ec += round(site.cleaner_hours_per_visit * v.count * site.cleaner_hourly_rate)
+          }
+        }
+        if (hasData) { expectedHours = round(eh); expectedCostEx = round(ec) }
+      }
+    } else {
+      expectedHours  = client.cleaner_hours_per_visit != null
+        ? round(client.cleaner_hours_per_visit * inc.count)
+        : null
+      expectedCostEx = expectedHours != null && client.cleaner_hourly_rate
+        ? round(expectedHours * client.cleaner_hourly_rate)
+        : null
+    }
 
     rows.push({
       client_id:            client.id,
       month:                billingMonthDate,
-      invoice_id:           null,           // null = projected, not from real invoice
-      service_count:        visits.count,
-      income_ex_gst:        visits.income_ex_gst,
-      rate_per_visit:       ratePerVisit,
+      invoice_id:           null,
+      service_count:        inc.count,
+      income_ex_gst:        inc.income_ex_gst,
+      rate_per_visit:       inc.rate_per_visit,
       cleaner_cost_ex_gst:  expectedCostEx ?? 0,
-      profit:               round(visits.income_ex_gst - (expectedCostEx ?? 0)),
-      margin_pct:           visits.income_ex_gst > 0
-        ? round(((visits.income_ex_gst - (expectedCostEx ?? 0)) / visits.income_ex_gst) * 100)
+      profit:               round(inc.income_ex_gst - (expectedCostEx ?? 0)),
+      margin_pct:           inc.income_ex_gst > 0
+        ? round(((inc.income_ex_gst - (expectedCostEx ?? 0)) / inc.income_ex_gst) * 100)
         : null,
       expected_hours:       expectedHours,
       expected_cost_ex_gst: expectedCostEx,
@@ -417,6 +549,103 @@ export async function generateExpectedMonthAction(monthStr: string) {
 
   revalidatePath('/financial')
   return { generated: rows.length }
+}
+
+// ─── Reprocess projected (no-invoice) P&L rows ───────────────────────────────
+
+export async function reprocessProjectedMonthsAction() {
+  const supabase = createClient()
+
+  const { data: projectedRows } = await (supabase as any)
+    .from('client_monthly_financials')
+    .select('client_id, month')
+    .is('invoice_id', null)
+
+  if (!projectedRows?.length) return { fixed: 0 }
+
+  const clientIds = Array.from(new Set(projectedRows.map((r: any) => r.client_id as string)))
+
+  const { data: clients } = await (supabase as any)
+    .from('clients')
+    .select('id, is_multi_site, monthly_value, rate_per_visit, frequency, start_date, service_days, cleaner_hourly_rate, cleaner_hours_per_visit')
+    .in('id', clientIds)
+
+  if (!clients?.length) return { fixed: 0 }
+
+  const multiSiteIds = clients.filter((c: any) => c.is_multi_site).map((c: any) => c.id as string)
+  const sitesMap = await fetchSitesMap(supabase as any, multiSiteIds)
+
+  const clientMap: Record<string, any> = {}
+  for (const c of clients) clientMap[c.id] = c
+
+  const updates: any[] = []
+
+  for (const row of projectedRows) {
+    const client = clientMap[row.client_id]
+    if (!client) continue
+
+    const monthDate = row.month as string
+    const [yearStr, monthStr] = monthDate.split('-')
+    const year  = parseInt(yearStr)
+    const month = parseInt(monthStr)
+
+    const inc = client.is_multi_site
+      ? calcMultiSiteIncome(sitesMap[client.id] ?? [], year, month, client.monthly_value ?? 0)
+      : calcSingleSiteIncome(client, year, month, false)
+
+    let expectedHours: number | null  = null
+    let expectedCostEx: number | null = null
+    if (client.is_multi_site) {
+      const sites = sitesMap[client.id] ?? []
+      if (sites.length > 0) {
+        let eh = 0; let ec = 0; let hasData = false
+        for (const site of sites) {
+          const v = calculateMonthlyVisits(year, month, site.frequency ?? 'monthly',
+            Array.isArray(site.service_days) ? site.service_days : [],
+            new Date(year, month - 1, 1), site.rate_per_visit ?? 0)
+          if (site.cleaner_hours_per_visit != null) {
+            eh += round(site.cleaner_hours_per_visit * v.count); hasData = true
+          }
+          if (site.cleaner_hourly_rate && site.cleaner_hours_per_visit != null) {
+            ec += round(site.cleaner_hours_per_visit * v.count * site.cleaner_hourly_rate)
+          }
+        }
+        if (hasData) { expectedHours = round(eh); expectedCostEx = round(ec) }
+      }
+    } else {
+      expectedHours  = client.cleaner_hours_per_visit != null
+        ? round(client.cleaner_hours_per_visit * inc.count)
+        : null
+      expectedCostEx = expectedHours != null && client.cleaner_hourly_rate
+        ? round(expectedHours * client.cleaner_hourly_rate)
+        : null
+    }
+
+    updates.push({
+      client_id:            client.id,
+      month:                monthDate,
+      invoice_id:           null,
+      service_count:        inc.count,
+      income_ex_gst:        inc.income_ex_gst,
+      rate_per_visit:       inc.rate_per_visit,
+      cleaner_cost_ex_gst:  expectedCostEx ?? 0,
+      profit:               round(inc.income_ex_gst - (expectedCostEx ?? 0)),
+      margin_pct:           inc.income_ex_gst > 0
+        ? round(((inc.income_ex_gst - (expectedCostEx ?? 0)) / inc.income_ex_gst) * 100)
+        : null,
+      expected_hours:       expectedHours,
+      expected_cost_ex_gst: expectedCostEx,
+    })
+  }
+
+  if (updates.length > 0) {
+    await (supabase as any)
+      .from('client_monthly_financials')
+      .upsert(updates, { onConflict: 'client_id,month' })
+  }
+
+  revalidatePath('/financial')
+  return { fixed: updates.length }
 }
 
 function round(n: number): number {

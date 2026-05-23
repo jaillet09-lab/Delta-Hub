@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { assignCleanerToClientAction } from '@/actions/manager'
+import { PortalSelect } from '@/components/portal/PortalSelect'
 
 interface Props {
   clientId: string
@@ -27,20 +28,21 @@ export function AssignCleanerDropdown({ clientId, currentCleanerId, cleaners }: 
     setTimeout(() => setSaved(false), 2000)
   }
 
+  const options = [
+    { value: '', label: 'Unassigned' },
+    ...cleaners.map((c) => ({ value: c.id, label: c.full_name ?? c.id })),
+  ]
+
   return (
     <div className="bg-white rounded-2xl px-5 py-4 mb-4">
       <p className="text-xs font-semibold text-gray-400 uppercase tracking-widest mb-3">Assign Cleaner</p>
-      <select
+      <PortalSelect
         value={value}
-        onChange={(e) => handleChange(e.target.value)}
+        onChange={handleChange}
+        options={options}
+        placeholder="Unassigned"
         disabled={saving}
-        className="w-full border-b border-gray-200 py-2.5 text-sm text-black focus:outline-none focus:border-black transition-colors bg-transparent disabled:opacity-50"
-      >
-        <option value="">Unassigned</option>
-        {cleaners.map((c) => (
-          <option key={c.id} value={c.id}>{c.full_name ?? c.id}</option>
-        ))}
-      </select>
+      />
       {saved && <p className="text-xs text-green-600 mt-2">✓ Saved</p>}
     </div>
   )

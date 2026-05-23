@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/Button'
 import { Modal } from '@/components/ui/Modal'
 import { formatAUD, formatDate } from '@/lib/formatters'
 import { monthLabel } from '@/lib/calendar'
-import { deleteInvoiceAction, saveRecurringExpenseAction, saveExpenseAction, generateExpectedMonthAction, reprocessAllInvoicesAction } from '@/actions/invoices'
+import { deleteInvoiceAction, saveRecurringExpenseAction, saveExpenseAction, generateExpectedMonthAction, reprocessAllInvoicesAction, reprocessProjectedMonthsAction } from '@/actions/invoices'
 import { deleteFinancialRecordAction } from '@/actions/financial'
 import { InvoiceUploadModal } from '@/components/financial/InvoiceUploadModal'
 import { MonthlyPLTable, type PLRow } from '@/components/financial/MonthlyPLTable'
@@ -429,12 +429,16 @@ export default function FinancialPage() {
                   <button
                     onClick={async () => {
                       setRecalculating(true)
-                      await reprocessAllInvoicesAction()
+                      // Fix real invoice rows + projected (no-invoice) rows in parallel
+                      await Promise.all([
+                        reprocessAllInvoicesAction(),
+                        reprocessProjectedMonthsAction(),
+                      ])
                       await load()
                       setRecalculating(false)
                     }}
-                    disabled={recalculating || invoices.length === 0}
-                    title="Recalculate P&L from saved invoices"
+                    disabled={recalculating}
+                    title="Recalculate all P&L rows (invoices + projected months)"
                     className="flex items-center gap-1.5 text-xs font-medium text-gray-500 hover:text-gray-800 border border-gray-200 rounded-lg px-3 py-1.5 hover:bg-gray-50 transition-colors disabled:opacity-40"
                   >
                     <RefreshCw className={`w-3.5 h-3.5 ${recalculating ? 'animate-spin' : ''}`} />

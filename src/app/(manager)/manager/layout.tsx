@@ -1,3 +1,4 @@
+import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { ManagerFrame } from '@/components/portal/ManagerFrame'
 import { SessionKeepAlive } from '@/components/portal/SessionKeepAlive'
@@ -6,9 +7,13 @@ import { SessionKeepAlive } from '@/components/portal/SessionKeepAlive'
 export default async function ManagerPagesLayout({ children }: { children: React.ReactNode }) {
   const supabase = createClient()
   const { data: { user } } = await supabase.auth.getUser()
-  const { data: profile } = user
-    ? await (supabase as any).from('profiles').select('full_name').eq('user_id', user.id).single()
-    : { data: null }
+
+  if (!user) redirect('/manager/login')
+
+  const role = user.user_metadata?.role ?? 'admin'
+  if (role !== 'manager' && role !== 'admin') redirect('/manager/login')
+
+  const { data: profile } = await (supabase as any).from('profiles').select('full_name').eq('user_id', user.id).single()
 
   return (
     <>

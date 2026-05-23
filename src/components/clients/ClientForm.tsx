@@ -58,7 +58,8 @@ const ADD_SERVICE_FREQ_OPTIONS: { value: AdditionalServiceFrequency; label: stri
 
 // Frequencies that use a day picker
 const MULTI_DAY_FREQUENCIES: FrequencyType[] = ['daily', 'weekly']
-const SINGLE_DAY_FREQUENCIES: FrequencyType[] = ['fortnightly']
+const SINGLE_DAY_FREQUENCIES: FrequencyType[] = ['fortnightly', 'monthly']
+const INFREQUENT_FREQUENCIES: FrequencyType[] = ['quarterly', 'annual', 'one_off']
 
 export function ClientForm({ defaultValues, defaultSites, action, submitLabel = 'Save Client', cleaners = [] }: ClientFormProps) {
   const router = useRouter()
@@ -85,9 +86,10 @@ export function ClientForm({ defaultValues, defaultSites, action, submitLabel = 
 
   // Always show day picker so manager can always see which days a client is cleaned
   const dpwNum = parseInt(daysPerWeek) || 0
+  const isInfrequent = INFREQUENT_FREQUENCIES.includes(frequency)
   const showMultiDayPicker = MULTI_DAY_FREQUENCIES.includes(frequency) || dpwNum > 1
   const showSingleDayPicker = !showMultiDayPicker && SINGLE_DAY_FREQUENCIES.includes(frequency)
-  const showDayPicker = true  // always shown
+  const showDayPicker = !isInfrequent
 
   function toggleDay(day: string) {
     if (showSingleDayPicker) {
@@ -298,59 +300,87 @@ export function ClientForm({ defaultValues, defaultSites, action, submitLabel = 
 
         {/* Cleaning Schedule — days per week + day picker */}
         <div className="border border-gray-200 rounded-xl p-4 space-y-4 bg-gray-50/60">
-          <p className="text-xs font-semibold text-gray-500 uppercase tracking-widest">Cleaning Schedule</p>
+          <p className="text-xs font-semibold text-gray-500 uppercase tracking-widest">Service Schedule</p>
 
-          {/* Times per week */}
+          {/* Frequency — moved here so it drives conditional fields below */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1.5">
-              How many times per week?
-            </label>
+            <label className="block text-sm font-medium text-gray-700 mb-1.5">Service Frequency *</label>
             <select
+              name="frequency"
               className="w-full bg-white border border-gray-200 text-gray-900 text-sm rounded-lg px-3 py-2 focus:outline-none focus:border-[#1e3a5f]"
-              value={daysPerWeek}
-              onChange={(e) => {
-                setDaysPerWeek(e.target.value)
-                // Auto-trim selected days if count drops below current selection
-                const n = parseInt(e.target.value) || 0
-                if (n > 0 && selectedDays.length > n) {
-                  setSelectedDays(selectedDays.slice(0, n))
-                }
-              }}
+              value={frequency}
+              onChange={(e) => setFrequency(e.target.value as FrequencyType)}
             >
-              <option value="">— Select —</option>
-              {[1, 2, 3, 4, 5, 6, 7].map((n) => (
-                <option key={n} value={n}>{n} {n === 1 ? 'day' : 'days'} per week</option>
+              {FREQUENCY_OPTIONS.map(o => (
+                <option key={o.value} value={o.value}>{o.label}</option>
               ))}
             </select>
-            {errors.days_per_week?.[0] && (
-              <p className="text-xs text-red-600 mt-1">{errors.days_per_week[0]}</p>
-            )}
           </div>
 
-          {/* Which days */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1.5">
-              Which days?
-              {daysPerWeek && parseInt(daysPerWeek) > 0 && (
-                <span className="text-gray-400 font-normal text-xs ml-1">
-                  (select {daysPerWeek} {parseInt(daysPerWeek) === 1 ? 'day' : 'days'})
-                </span>
-              )}
-            </label>
-            <div className="flex flex-wrap gap-2">
-              {DAYS_OF_WEEK.map((day) => (
-                <button key={day} type="button" onClick={() => toggleDay(day)}
-                  className={`px-3 py-1.5 rounded-lg text-sm font-medium border transition ${selectedDays.includes(day) ? 'bg-[#1e3a5f] text-white border-[#1e3a5f]' : 'bg-white text-gray-600 border-gray-300 hover:border-[#1e3a5f]'}`}>
-                  {day}
-                </button>
-              ))}
+          {/* Infrequent note */}
+          {isInfrequent && (
+            <div className="bg-blue-50 border border-blue-200 rounded-lg px-3 py-2.5 text-xs text-blue-700">
+              <strong>
+                {frequency === 'quarterly' ? 'Quarterly' : frequency === 'annual' ? 'Annual' : 'One-off'}
+              </strong>{' '}
+              — no weekly schedule needed. Just set the start date below and enter the rate per visit for billing.
             </div>
-            {selectedDays.length > 0 && (
-              <p className="text-xs text-[#1e3a5f] mt-2 font-medium">
-                Cleans on: {selectedDays.join(', ')}
-              </p>
-            )}
-          </div>
+          )}
+
+          {/* Times per week — hidden for infrequent */}
+          {!isInfrequent && MULTI_DAY_FREQUENCIES.includes(frequency) && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                How many times per week?
+              </label>
+              <select
+                className="w-full bg-white border border-gray-200 text-gray-900 text-sm rounded-lg px-3 py-2 focus:outline-none focus:border-[#1e3a5f]"
+                value={daysPerWeek}
+                onChange={(e) => {
+                  setDaysPerWeek(e.target.value)
+                  const n = parseInt(e.target.value) || 0
+                  if (n > 0 && selectedDays.length > n) {
+                    setSelectedDays(selectedDays.slice(0, n))
+                  }
+                }}
+              >
+                <option value="">— Select —</option>
+                {[1, 2, 3, 4, 5, 6, 7].map((n) => (
+                  <option key={n} value={n}>{n} {n === 1 ? 'day' : 'days'} per week</option>
+                ))}
+              </select>
+              {errors.days_per_week?.[0] && (
+                <p className="text-xs text-red-600 mt-1">{errors.days_per_week[0]}</p>
+              )}
+            </div>
+          )}
+
+          {/* Which days — hidden for infrequent */}
+          {showDayPicker && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                Which day{showMultiDayPicker ? 's' : ''}?
+                {showMultiDayPicker && daysPerWeek && parseInt(daysPerWeek) > 0 && (
+                  <span className="text-gray-400 font-normal text-xs ml-1">
+                    (select {daysPerWeek} {parseInt(daysPerWeek) === 1 ? 'day' : 'days'})
+                  </span>
+                )}
+              </label>
+              <div className="flex flex-wrap gap-2">
+                {DAYS_OF_WEEK.map((day) => (
+                  <button key={day} type="button" onClick={() => toggleDay(day)}
+                    className={`px-3 py-1.5 rounded-lg text-sm font-medium border transition ${selectedDays.includes(day) ? 'bg-[#1e3a5f] text-white border-[#1e3a5f]' : 'bg-white text-gray-600 border-gray-300 hover:border-[#1e3a5f]'}`}>
+                    {day}
+                  </button>
+                ))}
+              </div>
+              {selectedDays.length > 0 && (
+                <p className="text-xs text-[#1e3a5f] mt-2 font-medium">
+                  Cleans on: {selectedDays.join(', ')}
+                </p>
+              )}
+            </div>
+          )}
         </div>
 
         {/* Assigned Cleaner */}
@@ -378,8 +408,7 @@ export function ClientForm({ defaultValues, defaultSites, action, submitLabel = 
       <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-5 space-y-4">
         <h3 className="text-sm font-semibold text-gray-700">Billing</h3>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <Select label="Service Frequency *" name="frequency" value={frequency} onChange={(e) => setFrequency(e.target.value as FrequencyType)} options={FREQUENCY_OPTIONS} />
-          <Input  label="Rate Per Visit ($) *" name="rate_per_visit" type="number" step="0.01" min="0" value={rate} onChange={(e) => setRate(e.target.value)} placeholder="0.00" error={errors.rate_per_visit?.[0]} />
+          <Input label={`Rate Per Visit ($) *${isInfrequent ? ' — charged per service' : ''}`} name="rate_per_visit" type="number" step="0.01" min="0" value={rate} onChange={(e) => setRate(e.target.value)} placeholder="0.00" error={errors.rate_per_visit?.[0]} />
         </div>
         {rateNum > 0 && (
           <div className="grid grid-cols-2 gap-4 pt-2 border-t border-gray-100">

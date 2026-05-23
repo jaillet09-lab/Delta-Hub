@@ -7,10 +7,10 @@ export default async function CleanerLayout({ children }: { children: React.Reac
   const supabase = createClient()
   const { data: { user } } = await supabase.auth.getUser()
 
-  if (!user) redirect('/login')
+  if (!user) redirect('/cleaner/login')
 
   const role = user.user_metadata?.role ?? 'admin'
-  if (role !== 'cleaner') redirect('/login')
+  if (role !== 'cleaner') redirect('/cleaner/login')
 
   return (
     <>

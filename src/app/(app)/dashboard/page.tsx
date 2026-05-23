@@ -7,6 +7,7 @@ import { KPIGrid } from '@/components/dashboard/KPIGrid'
 import { AlertPanel } from '@/components/dashboard/AlertPanel'
 import { RevenueByServiceType } from '@/components/analytics/RevenueByServiceType'
 import { AdminCompleteJobButton } from '@/components/dashboard/AdminCompleteJobButton'
+import { XeroFinanceWidget } from '@/components/admin/XeroFinanceWidget'
 import { formatAUD } from '@/lib/formatters'
 import { HEALTH_STATUS_LABELS } from '@/lib/constants'
 import { ChevronRight, CheckCircle, AlertTriangle, TrendingDown, Info, Activity, TrendingUp, XCircle, CheckCircle2 } from 'lucide-react'
@@ -545,6 +546,14 @@ export default async function DashboardPage() {
             </p>
           </div>
         )}
+      </div>
+
+      {/* ── XERO FINANCE ─────────────────────────────────────────────────────── */}
+      <div className="border-t border-gray-200 pt-4">
+        <div className="flex items-center gap-2 mb-4">
+          <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Accounting</p>
+        </div>
+        <XeroFinanceWidget />
       </div>
     </div>
   )

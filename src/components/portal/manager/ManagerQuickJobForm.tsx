@@ -3,12 +3,13 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createJobAction } from '@/actions/team'
+import { PortalSelect } from '@/components/portal/PortalSelect'
 
 interface Props {
   clientId: string
   clientAddress?: string | null
   clientSuburb?: string | null
-  serviceDays?: string[]        // e.g. ['monday', 'wednesday']
+  serviceDays?: string[]
   cleaners: { id: string; full_name: string | null }[]
 }
 
@@ -17,18 +18,14 @@ const DAY_NUM: Record<string, number> = {
   thursday: 4, friday: 5, saturday: 6,
 }
 
-/** Returns the next N dates that fall on one of the given day names */
 function upcomingDates(serviceDays: string[], count = 8): string[] {
   const targets = serviceDays
     .map((d) => DAY_NUM[d.toLowerCase()])
     .filter((n) => n !== undefined)
-
   if (targets.length === 0) return []
-
   const results: string[] = []
   const cursor = new Date()
   cursor.setHours(0, 0, 0, 0)
-
   for (let i = 0; i < 90 && results.length < count; i++) {
     if (targets.includes(cursor.getDay())) {
       results.push(cursor.toISOString().split('T')[0])
@@ -45,27 +42,28 @@ function formatDate(iso: string) {
 }
 
 export function ManagerQuickJobForm({
-  clientId,
-  clientAddress,
-  clientSuburb,
-  serviceDays = [],
-  cleaners,
+  clientId, clientAddress, clientSuburb, serviceDays = [], cleaners,
 }: Props) {
   const router = useRouter()
-  const dates = upcomingDates(serviceDays)
-
+  const dates  = upcomingDates(serviceDays)
   const hasDates = dates.length > 0
+
   const [selectedDate, setSelectedDate] = useState(dates[0] ?? '')
-  const [manualDate, setManualDate] = useState('')
-  const [cleanerId, setCleanerId] = useState('')
-  const [notes, setNotes] = useState('')
-  const [saving, setSaving] = useState(false)
-  const [success, setSuccess] = useState(false)
-  const [error, setError] = useState<string | null>(null)
+  const [manualDate, setManualDate]     = useState('')
+  const [cleanerId, setCleanerId]       = useState('')
+  const [notes, setNotes]               = useState('')
+  const [saving, setSaving]             = useState(false)
+  const [success, setSuccess]           = useState(false)
+  const [error, setError]               = useState<string | null>(null)
 
-  const cls = 'w-full border-b border-gray-200 py-2.5 text-sm text-black focus:outline-none focus:border-black transition-colors bg-transparent'
-
+  const inp = 'w-full border-b border-gray-200 py-2.5 text-sm text-black focus:outline-none focus:border-black transition-colors bg-transparent placeholder-gray-400'
   const chosenDate = hasDates ? selectedDate : manualDate
+
+  const dateOptions = dates.map((d) => ({ value: d, label: formatDate(d) }))
+  const cleanerOptions = [
+    { value: '', label: 'Unassigned' },
+    ...cleaners.map((c) => ({ value: c.id, label: c.full_name ?? c.id })),
+  ]
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -85,9 +83,7 @@ export function ManagerQuickJobForm({
     setSaving(false)
     if (result.error) { setError(result.error); return }
     setSuccess(true)
-    setCleanerId('')
-    setNotes('')
-    setManualDate('')
+    setCleanerId(''); setNotes(''); setManualDate('')
     if (hasDates) {
       const idx = dates.indexOf(selectedDate)
       setSelectedDate(dates[idx + 1] ?? dates[0] ?? '')
@@ -101,53 +97,39 @@ export function ManagerQuickJobForm({
       <p className="text-xs font-semibold text-gray-400 uppercase tracking-widest mb-4">Schedule Job</p>
       <form onSubmit={handleSubmit} className="space-y-4">
         {success && <p className="text-xs text-green-600 font-semibold">✓ Job scheduled</p>}
-        {error && <p className="text-xs text-red-500">{error}</p>}
+        {error   && <p className="text-xs text-red-500">{error}</p>}
 
         <div>
           <p className="text-xs text-gray-400 mb-1.5">Service Date</p>
           {hasDates ? (
-            <select value={selectedDate} onChange={(e) => setSelectedDate(e.target.value)} className={cls}>
-              {dates.map((d) => (
-                <option key={d} value={d}>{formatDate(d)}</option>
-              ))}
-            </select>
-          ) : (
-            <input
-              type="date"
-              value={manualDate}
-              onChange={(e) => setManualDate(e.target.value)}
-              required
-              className={cls}
+            <PortalSelect
+              value={selectedDate}
+              onChange={setSelectedDate}
+              options={dateOptions}
+              placeholder="Select date…"
             />
+          ) : (
+            <input type="date" value={manualDate} onChange={(e) => setManualDate(e.target.value)} required className={inp} />
           )}
         </div>
 
         <div>
           <p className="text-xs text-gray-400 mb-1.5">Assign Cleaner</p>
-          <select value={cleanerId} onChange={(e) => setCleanerId(e.target.value)} className={cls}>
-            <option value="">Unassigned</option>
-            {cleaners.map((c) => (
-              <option key={c.id} value={c.id}>{c.full_name ?? c.id}</option>
-            ))}
-          </select>
+          <PortalSelect
+            value={cleanerId}
+            onChange={setCleanerId}
+            options={cleanerOptions}
+            placeholder="Unassigned"
+          />
         </div>
 
         <div>
           <p className="text-xs text-gray-400 mb-1.5">Access Notes (optional)</p>
-          <input
-            type="text"
-            value={notes}
-            onChange={(e) => setNotes(e.target.value)}
-            placeholder="Entry codes, alarm pin…"
-            className={cls}
-          />
+          <input type="text" value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Entry codes, alarm pin…" className={inp} />
         </div>
 
-        <button
-          type="submit"
-          disabled={saving || !chosenDate}
-          className="w-full bg-black text-white text-sm font-semibold rounded-2xl py-3.5 disabled:opacity-40 active:scale-[0.98] transition-all"
-        >
+        <button type="submit" disabled={saving || !chosenDate}
+          className="w-full bg-black text-white text-sm font-semibold rounded-2xl py-3.5 disabled:opacity-40 active:scale-[0.98] transition-all">
           {saving ? 'Scheduling…' : 'Schedule Job'}
         </button>
       </form>

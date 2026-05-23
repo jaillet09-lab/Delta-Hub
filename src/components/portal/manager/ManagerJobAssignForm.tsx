@@ -3,33 +3,31 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { assignCleanerToJobAction } from '@/actions/jobs'
+import { PortalSelect } from '@/components/portal/PortalSelect'
 
-interface Job {
-  id: string
-  clientName: string
-  scheduledDate: string
-  currentCleanerId: string | null
-}
-
-interface Cleaner {
-  id: string
-  fullName: string
-}
-
-interface Props {
-  jobs: Job[]
-  cleaners: Cleaner[]
-}
+interface Job { id: string; clientName: string; scheduledDate: string; currentCleanerId: string | null }
+interface Cleaner { id: string; fullName: string }
+interface Props { jobs: Job[]; cleaners: Cleaner[] }
 
 export function ManagerJobAssignForm({ jobs, cleaners }: Props) {
   const router = useRouter()
-  const [jobId, setJobId] = useState('')
+  const [jobId, setJobId]       = useState('')
   const [cleanerId, setCleanerId] = useState('')
-  const [saving, setSaving] = useState(false)
-  const [success, setSuccess] = useState(false)
-  const [error, setError] = useState<string | null>(null)
+  const [saving, setSaving]     = useState(false)
+  const [success, setSuccess]   = useState(false)
+  const [error, setError]       = useState<string | null>(null)
 
-  const sel = 'w-full border-b border-gray-200 py-2.5 text-sm text-black focus:outline-none focus:border-black transition-colors bg-transparent'
+  const jobOptions = [
+    { value: '', label: 'Select job…' },
+    ...jobs.map((j) => ({
+      value: j.id,
+      label: `${j.clientName} · ${new Date(j.scheduledDate + 'T00:00:00').toLocaleDateString('en-AU', { day: 'numeric', month: 'short' })}`,
+    })),
+  ]
+  const cleanerOptions = [
+    { value: '', label: 'Unassigned' },
+    ...cleaners.map((c) => ({ value: c.id, label: c.fullName })),
+  ]
 
   async function handleAssign(e: React.FormEvent) {
     e.preventDefault()
@@ -46,28 +44,16 @@ export function ManagerJobAssignForm({ jobs, cleaners }: Props) {
   return (
     <form onSubmit={handleAssign} className="space-y-4">
       {success && <p className="text-xs text-green-700 font-medium">✓ Assignment updated</p>}
-      {error && <p className="text-xs text-red-500">{error}</p>}
+      {error   && <p className="text-xs text-red-500">{error}</p>}
 
       <div>
         <p className="text-xs text-gray-400 mb-1.5">Job</p>
-        <select className={sel} value={jobId} onChange={(e) => { setJobId(e.target.value); setError(null) }}>
-          <option value="">Select job…</option>
-          {jobs.map((j) => (
-            <option key={j.id} value={j.id}>
-              {j.clientName} · {new Date(j.scheduledDate + 'T00:00:00').toLocaleDateString('en-AU', { day: 'numeric', month: 'short' })}
-            </option>
-          ))}
-        </select>
+        <PortalSelect value={jobId} onChange={(v) => { setJobId(v); setError(null) }} options={jobOptions} placeholder="Select job…" />
       </div>
 
       <div>
         <p className="text-xs text-gray-400 mb-1.5">Assign To</p>
-        <select className={sel} value={cleanerId} onChange={(e) => setCleanerId(e.target.value)}>
-          <option value="">Unassigned</option>
-          {cleaners.map((c) => (
-            <option key={c.id} value={c.id}>{c.fullName}</option>
-          ))}
-        </select>
+        <PortalSelect value={cleanerId} onChange={setCleanerId} options={cleanerOptions} placeholder="Unassigned" />
       </div>
 
       <button type="submit" disabled={saving || !jobId}

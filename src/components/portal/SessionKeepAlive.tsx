@@ -3,6 +3,7 @@
 import { useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
+import { getPortalKey, PORTAL_LOGIN } from '@/lib/supabase/portal'
 
 /**
  * Prevents iOS PWA from signing users out when the app is closed with a swipe-up.
@@ -27,8 +28,9 @@ export function SessionKeepAlive() {
         // Try refreshing with the stored refresh token
         const { error: refreshError } = await supabase.auth.refreshSession()
         if (refreshError) {
-          // Genuinely expired — redirect to login
-          router.replace('/login')
+          // Genuinely expired — redirect to this portal's login page
+          const portal = getPortalKey(window.location.pathname)
+          router.replace(PORTAL_LOGIN[portal])
         }
       }
     }

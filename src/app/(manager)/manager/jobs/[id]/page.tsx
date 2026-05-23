@@ -3,8 +3,8 @@ import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
 import { ResolveButton } from '@/components/portal/manager/ResolveButton'
 import { MarkJobCompleteButton } from '@/components/team/MarkJobCompleteButton'
+import { PhotoGrid } from '@/components/ui/PhotoLightbox'
 import { MapPin, User, AlertTriangle, Link as LinkIcon } from 'lucide-react'
-import Image from 'next/image'
 
 const STATUS_LABELS: Record<string, string> = {
   not_started: 'Not Started',
@@ -176,15 +176,7 @@ export default async function ManagerJobDetailPage({ params }: { params: { id: s
           <p className="text-xs font-semibold text-gray-400 uppercase tracking-widest mb-3">
             Photos ({photos.length})
           </p>
-          <div className="grid grid-cols-3 gap-2">
-            {photos.map((url, i) => (
-              <a key={i} href={`/api/file?url=${Buffer.from(url).toString('base64url')}`} target="_blank" rel="noopener noreferrer">
-                <div className="relative aspect-square rounded-xl overflow-hidden bg-gray-100">
-                  <Image src={url} alt={`Photo ${i + 1}`} fill className="object-cover" />
-                </div>
-              </a>
-            ))}
-          </div>
+          <PhotoGrid photos={photos} />
         </div>
       )}
 

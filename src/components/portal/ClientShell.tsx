@@ -37,7 +37,7 @@ export function ClientShell({ children, clientName, userName, activePath, sites,
       <header className="sticky top-0 z-40 bg-white border-b border-gray-200">
         <div className="flex items-center justify-between px-8 h-16 max-w-5xl mx-auto">
           {/* Logo + client name + site selector */}
-          <div className="flex items-center gap-4 min-w-0">
+          <div className="flex items-center gap-4 flex-shrink-0">
             <Image
               src="/logo-white.png"
               alt="Delta Cleaning"
@@ -49,7 +49,7 @@ export function ClientShell({ children, clientName, userName, activePath, sites,
             {clientName && (
               <>
                 <span className="text-gray-200 text-lg font-thin flex-shrink-0">|</span>
-                <span className="text-sm font-semibold text-gray-700 truncate">{clientName}</span>
+                <span className="text-sm font-semibold text-gray-700 whitespace-nowrap flex-shrink-0">{clientName}</span>
               </>
             )}
             {hasSites && sites && (
