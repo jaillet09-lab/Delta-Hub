@@ -2,6 +2,8 @@ import Image from 'next/image'
 import { SurveyForm } from './SurveyForm'
 import { createServerClient } from '@supabase/ssr'
 
+export const dynamic = 'force-dynamic'
+
 export default async function SurveyPage({ params }: { params: { token: string } }) {
   // Use anon client to look up token (no auth required for public survey)
   const supabase = createServerClient(
