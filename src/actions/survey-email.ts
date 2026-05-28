@@ -99,5 +99,52 @@ export async function submitSurveyAction(data: {
   if (rpcError) return { error: `Failed to save survey: ${rpcError.message}` }
   if (result?.error) return { error: result.error }
 
+  // Send notification email to Delta Cleaning with results
+  try {
+    const { data: tokenRow } = await db
+      .from('survey_tokens')
+      .select('clients(business_name, contact_name)')
+      .eq('token', data.token)
+      .single()
+
+    const businessName = tokenRow?.clients?.business_name || 'Unknown Client'
+    const contactName  = tokenRow?.clients?.contact_name  || ''
+
+    const avg = ((data.qualityScore + data.reliabilityScore + data.communicationScore + data.valueScore + data.loyaltyScore) / 5).toFixed(1)
+
+    function scoreLabel(n: number) {
+      return n >= 8 ? '🟢' : n >= 6 ? '🟡' : '🔴'
+    }
+
+    const apiKey = process.env.RESEND_API_KEY
+    if (apiKey) {
+      const { Resend } = await import('resend')
+      const resend = new Resend(apiKey)
+      await resend.emails.send({
+        from: 'Delta Hub <hello@deltacleaning.com.au>',
+        to: 'hello@deltacleaning.com.au',
+        subject: `New survey from ${businessName} — ${avg}/10 avg`,
+        text: [
+          `Survey submitted by ${contactName || businessName}`,
+          `Client: ${businessName}`,
+          ``,
+          `${scoreLabel(data.qualityScore)} Quality:        ${data.qualityScore}/10`,
+          `${scoreLabel(data.reliabilityScore)} Reliability:    ${data.reliabilityScore}/10`,
+          `${scoreLabel(data.communicationScore)} Communication:  ${data.communicationScore}/10`,
+          `${scoreLabel(data.valueScore)} Value:          ${data.valueScore}/10`,
+          `${scoreLabel(data.loyaltyScore)} Loyalty:        ${data.loyaltyScore}/10`,
+          ``,
+          `Average: ${avg}/10`,
+          ``,
+          data.comments ? `Comments:\n${data.comments}` : 'No comments left.',
+          ``,
+          `View in Delta Hub: https://portal.deltacleaning.com.au/surveys`,
+        ].join('\n'),
+      })
+    }
+  } catch (_) {
+    // Notification failure should never block the client's submission
+  }
+
   return { success: true }
 }
