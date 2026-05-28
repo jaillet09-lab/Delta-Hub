@@ -100,6 +100,8 @@ export async function submitSurveyAction(data: {
   if (result?.error) return { error: result.error }
 
   // Send notification email to Delta Cleaning with results
+  const scoreLabel = (n: number) => n >= 8 ? '🟢' : n >= 6 ? '🟡' : '🔴'
+
   try {
     const { data: tokenRow } = await db
       .from('survey_tokens')
@@ -111,10 +113,6 @@ export async function submitSurveyAction(data: {
     const contactName  = tokenRow?.clients?.contact_name  || ''
 
     const avg = ((data.qualityScore + data.reliabilityScore + data.communicationScore + data.valueScore + data.loyaltyScore) / 5).toFixed(1)
-
-    function scoreLabel(n: number) {
-      return n >= 8 ? '🟢' : n >= 6 ? '🟡' : '🔴'
-    }
 
     const apiKey = process.env.RESEND_API_KEY
     if (apiKey) {
