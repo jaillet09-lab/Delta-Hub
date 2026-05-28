@@ -1,10 +1,12 @@
 'use client'
 
+import { useState } from 'react'
 import { Table, type Column } from '@/components/ui/Table'
 import { formatDate } from '@/lib/formatters'
-import { AlertTriangle } from 'lucide-react'
+import { AlertTriangle, Trash2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { Survey } from '@/types/app'
+import { deleteSurveyAction } from '@/actions/surveys'
 
 type SurveyWithClient = Survey & {
   clients: { business_name: string; ref_number: string | null } | null
@@ -36,6 +38,45 @@ function avgScore(s: Survey) {
     .filter((x): x is number => x != null)
   if (!scores.length) return null
   return scores.reduce((a, b) => a + b, 0) / scores.length
+}
+
+function DeleteButton({ id }: { id: string }) {
+  const [confirming, setConfirming] = useState(false)
+  const [deleting, setDeleting] = useState(false)
+
+  if (confirming) {
+    return (
+      <div className="flex items-center gap-1">
+        <button
+          onClick={async () => {
+            setDeleting(true)
+            await deleteSurveyAction(id)
+          }}
+          disabled={deleting}
+          className="text-xs text-red-600 font-semibold hover:text-red-800 disabled:opacity-50"
+        >
+          {deleting ? 'Deleting…' : 'Confirm'}
+        </button>
+        <span className="text-gray-300">·</span>
+        <button
+          onClick={() => setConfirming(false)}
+          className="text-xs text-gray-400 hover:text-gray-600"
+        >
+          Cancel
+        </button>
+      </div>
+    )
+  }
+
+  return (
+    <button
+      onClick={() => setConfirming(true)}
+      className="text-gray-300 hover:text-red-500 transition-colors"
+      title="Delete survey"
+    >
+      <Trash2 className="w-4 h-4" />
+    </button>
+  )
 }
 
 export function SurveyTable({ surveys }: SurveyTableProps) {
@@ -100,6 +141,11 @@ export function SurveyTable({ surveys }: SurveyTableProps) {
       render: (s) => s.comments ? (
         <span className="text-xs text-gray-500 italic truncate max-w-48 block">{s.comments}</span>
       ) : <span className="text-gray-300">—</span>,
+    },
+    {
+      key: 'id' as any,
+      header: '',
+      render: (s) => <DeleteButton id={s.id} />,
     },
   ]
 
