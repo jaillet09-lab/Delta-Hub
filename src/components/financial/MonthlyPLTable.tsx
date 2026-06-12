@@ -34,7 +34,7 @@ interface Props {
 }
 
 function MarginPill({ pct }: { pct: number | null }) {
-  if (pct == null) return <span className="text-gray-400 text-xs">Ã¢â‚¬â€</span>
+  if (pct == null) return <span className="text-gray-400 text-xs">—</span>
   const color = pct >= 55 ? 'text-emerald-600 bg-emerald-50 border-emerald-200'
     : pct >= 35 ? 'text-amber-400 bg-amber-500/10 border-amber-500/20'
     : 'text-red-600 bg-red-50 border-red-200'
@@ -46,7 +46,7 @@ function MarginPill({ pct }: { pct: number | null }) {
 }
 
 function VarianceCell({ variance, isHours }: { variance: number | null; isHours?: boolean }) {
-  if (variance == null) return <span className="text-gray-400 text-xs">Ã¢â‚¬â€</span>
+  if (variance == null) return <span className="text-gray-400 text-xs">—</span>
   const abs = Math.abs(variance)
   const over = variance > 0
   const display = isHours ? `${variance > 0 ? '+' : ''}${variance.toFixed(1)}h` : `${variance > 0 ? '+' : '-'}${formatAUD(abs)}`
@@ -129,17 +129,17 @@ export function MonthlyPLTable({ rows, month, showClient = true }: Props) {
                         )}
                       </td>
                     )}
-                    <td className="px-4 py-3 text-right text-sm text-gray-700 tabular-nums">{row.service_count ?? 'Ã¢â‚¬â€'}</td>
-                    <td className="px-4 py-3 text-right text-sm font-medium text-gray-800 tabular-nums">{row.income_ex_gst != null ? formatAUD(row.income_ex_gst) : 'Ã¢â‚¬â€'}</td>
+                    <td className="px-4 py-3 text-right text-sm text-gray-700 tabular-nums">{row.service_count ?? '—'}</td>
+                    <td className="px-4 py-3 text-right text-sm font-medium text-gray-800 tabular-nums">{row.income_ex_gst != null ? formatAUD(row.income_ex_gst) : '—'}</td>
                     <td className="px-4 py-3 text-right text-sm text-gray-700 tabular-nums">
-                      {row.cleaner_hours != null ? `${row.cleaner_hours}h` : 'Ã¢â‚¬â€'}
+                      {row.cleaner_hours != null ? `${row.cleaner_hours}h` : '—'}
                       {row.cleaner_rate_per_hour && (
                         <span className="text-xs text-gray-400 block">{formatAUD(row.cleaner_rate_per_hour)}/hr</span>
                       )}
                     </td>
-                    <td className="px-4 py-3 text-right text-sm text-gray-700 tabular-nums">{row.cleaner_cost_ex_gst != null ? formatAUD(row.cleaner_cost_ex_gst) : 'Ã¢â‚¬â€'}</td>
+                    <td className="px-4 py-3 text-right text-sm text-gray-700 tabular-nums">{row.cleaner_cost_ex_gst != null ? formatAUD(row.cleaner_cost_ex_gst) : '—'}</td>
                     <td className={`px-4 py-3 text-right text-sm font-semibold tabular-nums ${(row.profit ?? 0) >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
-                      {row.profit != null ? formatAUD(row.profit) : 'Ã¢â‚¬â€'}
+                      {row.profit != null ? formatAUD(row.profit) : '—'}
                     </td>
                     <td className="px-4 py-3 text-center"><MarginPill pct={row.margin_pct} /></td>
                     <td className="px-4 py-3 text-center"><VarianceCell variance={row.hours_variance} isHours /></td>

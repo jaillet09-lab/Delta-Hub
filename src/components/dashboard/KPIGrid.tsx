@@ -23,13 +23,11 @@ function KPITile({
   accentBar?: string
 }) {
   return (
-    <div className={`bg-white rounded-xl border border-gray-100 shadow-sm p-5 relative overflow-hidden`}>
-      {accentBar && (
-        <div className={`absolute top-0 left-0 w-full h-0.5 ${accentBar}`} />
-      )}
-      <p className="text-xs font-medium text-gray-400 uppercase tracking-wider">{label}</p>
-      <p className={`text-2xl font-bold mt-2 leading-none tabular-nums ${valueColor}`}>{value}</p>
-      {subtext && <p className="text-xs text-gray-400 mt-2">{subtext}</p>}
+    <div className="group bg-white rounded-2xl border border-gray-200/70 shadow-[0_1px_2px_rgba(16,24,40,0.05)] hover:shadow-[0_4px_16px_rgba(16,24,40,0.08)] hover:-translate-y-0.5 transition-all duration-200 p-5 relative overflow-hidden">
+      <div className={`absolute top-0 left-0 w-full h-[3px] ${accentBar ?? 'bg-[#1e3a5f]/15'}`} />
+      <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-[0.14em]">{label}</p>
+      <p className={`font-display text-[28px] font-extrabold mt-2.5 leading-none tabular-nums tracking-tight ${valueColor}`}>{value}</p>
+      {subtext && <p className="text-xs text-gray-400 mt-2.5">{subtext}</p>}
     </div>
   )
 }

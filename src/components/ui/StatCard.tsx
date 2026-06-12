@@ -25,14 +25,14 @@ export function StatCard({
   return (
     <div
       className={cn(
-        'bg-white rounded-xl border border-gray-200 shadow-sm p-6',
+        'bg-white rounded-2xl border border-gray-200/70 shadow-[0_1px_2px_rgba(16,24,40,0.05)] hover:shadow-[0_4px_16px_rgba(16,24,40,0.08)] transition-shadow duration-200 p-6',
         className
       )}
     >
       <div className="flex items-start justify-between">
         <div className="flex-1 min-w-0">
-          <p className="text-sm font-medium text-gray-500 mb-1">{label}</p>
-          <p className="text-2xl font-bold text-gray-900 truncate">{value}</p>
+          <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-[0.14em] mb-1.5">{label}</p>
+          <p className="font-display text-[26px] font-extrabold text-gray-900 truncate tracking-tight tabular-nums">{value}</p>
           {subvalue && (
             <p className="text-xs text-gray-400 mt-1">{subvalue}</p>
           )}

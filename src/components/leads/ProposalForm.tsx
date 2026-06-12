@@ -58,7 +58,7 @@ export function ProposalForm({ lead, onSave, onCancel, loading }: ProposalFormPr
         <div>
           <label className={labelClass}>Frequency</label>
           <select value={form.frequency} onChange={update('frequency')} className={inputClass + ' cursor-pointer'}>
-            <option value="">Selectâ€¦</option>
+            <option value="">Select…</option>
             {['Daily', 'Weekly', 'Fortnightly', 'Monthly', 'Quarterly', 'One-off'].map(f => (
               <option key={f} value={f}>{f}</option>
             ))}
@@ -71,19 +71,19 @@ export function ProposalForm({ lead, onSave, onCancel, loading }: ProposalFormPr
       </div>
       <div>
         <label className={labelClass}>Scope of Work</label>
-        <textarea value={form.scopeOfWork} onChange={update('scopeOfWork')} rows={3} className={inputClass + ' resize-none'} placeholder="Describe cleaning scopeâ€¦" />
+        <textarea value={form.scopeOfWork} onChange={update('scopeOfWork')} rows={3} className={inputClass + ' resize-none'} placeholder="Describe cleaning scope…" />
       </div>
       <div>
         <label className={labelClass}>Inclusions</label>
-        <textarea value={form.inclusions} onChange={update('inclusions')} rows={2} className={inputClass + ' resize-none'} placeholder="What's includedâ€¦" />
+        <textarea value={form.inclusions} onChange={update('inclusions')} rows={2} className={inputClass + ' resize-none'} placeholder="What's included…" />
       </div>
       <div>
         <label className={labelClass}>Exclusions</label>
-        <textarea value={form.exclusions} onChange={update('exclusions')} rows={2} className={inputClass + ' resize-none'} placeholder="What's excludedâ€¦" />
+        <textarea value={form.exclusions} onChange={update('exclusions')} rows={2} className={inputClass + ' resize-none'} placeholder="What's excluded…" />
       </div>
       <div>
         <label className={labelClass}>Terms &amp; Conditions</label>
-        <textarea value={form.termsAndConditions} onChange={update('termsAndConditions')} rows={3} className={inputClass + ' resize-none'} placeholder="Payment terms, cancellation policyâ€¦" />
+        <textarea value={form.termsAndConditions} onChange={update('termsAndConditions')} rows={3} className={inputClass + ' resize-none'} placeholder="Payment terms, cancellation policy…" />
       </div>
       <div>
         <label className={labelClass}>Valid Until</label>
@@ -92,7 +92,7 @@ export function ProposalForm({ lead, onSave, onCancel, loading }: ProposalFormPr
       <div className="flex flex-col-reverse sm:flex-row justify-end gap-3 pt-2">
         <Button type="button" variant="secondary" onClick={onCancel}>Cancel</Button>
         <Button type="button" onClick={() => onSave({ ...form, generatedDate: new Date().toISOString() })} disabled={loading}>
-          {loading ? 'Savingâ€¦' : 'Save Proposal'}
+          {loading ? 'Saving…' : 'Save Proposal'}
         </Button>
       </div>
     </div>

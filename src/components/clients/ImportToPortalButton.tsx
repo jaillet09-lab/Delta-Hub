@@ -66,7 +66,7 @@ export function ImportToPortalButton({ clientId, clientName, contactEmail }: Pro
 
             {success ? (
               <div className="text-center py-6">
-                <p className="text-emerald-600 font-semibold">âœ“ Portal access created</p>
+                <p className="text-emerald-600 font-semibold">✓ Portal access created</p>
                 <p className="text-xs text-gray-400 mt-1">Share the login credentials with the client.</p>
               </div>
             ) : (
@@ -89,7 +89,7 @@ export function ImportToPortalButton({ clientId, clientName, contactEmail }: Pro
                     Cancel
                   </button>
                   <button onClick={handleCreate} disabled={submitting} className="flex-1 bg-[#1e3a5f] text-white text-sm font-semibold rounded-lg py-2.5 hover:bg-[#162d4a] disabled:opacity-50 transition-colors">
-                    {submitting ? 'Creatingâ€¦' : 'Create Access'}
+                    {submitting ? 'Creating…' : 'Create Access'}
                   </button>
                 </div>
               </div>

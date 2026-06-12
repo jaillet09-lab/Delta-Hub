@@ -10,7 +10,7 @@ interface LeadFormProps {
   submitLabel?: string
 }
 
-// text-[16px] is critical â€” iOS Safari auto-zooms inputs with font-size < 16px
+// text-[16px] is critical — iOS Safari auto-zooms inputs with font-size < 16px
 const inputClass = 'w-full bg-white border border-gray-200 text-gray-900 placeholder-gray-400 rounded-lg px-3 py-3 text-[16px] focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400'
 const labelClass = 'text-xs font-medium text-gray-600 block mb-1.5'
 
@@ -101,7 +101,7 @@ export function LeadForm({ onSubmit, onCancel, defaultValues = {}, submitLabel }
       <div>
         <label className={labelClass}>Source</label>
         <select name="source" className={inputClass + ' cursor-pointer'}>
-          <option value="">Select sourceâ€¦</option>
+          <option value="">Select source…</option>
           {['Referral', 'Google', 'Website', 'Cold outreach', 'Social media', 'Trade show', 'Other'].map(s => (
             <option key={s} value={s}>{s}</option>
           ))}
@@ -120,12 +120,12 @@ export function LeadForm({ onSubmit, onCancel, defaultValues = {}, submitLabel }
       </div>
       <div>
         <label className={labelClass}>Notes</label>
-        <textarea name="notes" rows={3} placeholder="Any notes about this leadâ€¦" className={inputClass + ' resize-none'} />
+        <textarea name="notes" rows={3} placeholder="Any notes about this lead…" className={inputClass + ' resize-none'} />
       </div>
       <div className="flex flex-col-reverse sm:flex-row justify-end gap-3 pt-2">
         <Button type="button" variant="secondary" onClick={onCancel}>Cancel</Button>
         <Button type="submit" disabled={loading}>
-          {loading ? 'Savingâ€¦' : (submitLabel ?? 'Create Lead')}
+          {loading ? 'Saving…' : (submitLabel ?? 'Create Lead')}
         </Button>
       </div>
     </form>

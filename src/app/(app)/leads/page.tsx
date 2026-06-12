@@ -82,7 +82,7 @@ export default function LeadsPage() {
         <div>
           <h2 className="text-xl font-semibold text-gray-900">Pipeline</h2>
           <p className="text-sm text-gray-400 mt-0.5">
-            {activeLeads.length} active Â· {wonLeads.length} won
+            {activeLeads.length} active · {wonLeads.length} won
           </p>
         </div>
         <Button onClick={() => { setAddError(null); setShowAdd(true) }}>
@@ -94,14 +94,15 @@ export default function LeadsPage() {
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         {[
           { label: 'In Pipeline',  value: String(activeLeads.length), sub: 'active leads' },
-          { label: 'Quoted Value', value: quotedValue > 0 ? formatAUD(quotedValue) : 'â€”', sub: `${leads.filter(l => l.status === 'quoted').length} quoted` },
+          { label: 'Quoted Value', value: quotedValue > 0 ? formatAUD(quotedValue) : '—', sub: `${leads.filter(l => l.status === 'quoted').length} quoted` },
           { label: 'Won Total',    value: String(wonLeads.length), sub: 'all time' },
-          { label: 'Conversion',   value: conversionPct != null ? `${conversionPct}%` : 'â€”', sub: `${wonLeads.length} of ${leads.length}` },
+          { label: 'Conversion',   value: conversionPct != null ? `${conversionPct}%` : '—', sub: `${wonLeads.length} of ${leads.length}` },
         ].map(kpi => (
-          <div key={kpi.label} className="bg-white border border-gray-100 shadow-sm rounded-xl p-4">
-            <p className="text-xs font-medium text-gray-400 uppercase tracking-wider">{kpi.label}</p>
-            <p className="text-2xl font-bold text-gray-900 mt-2 tabular-nums">{kpi.value}</p>
-            <p className="text-xs text-gray-400 mt-1">{kpi.sub}</p>
+          <div key={kpi.label} className="bg-white border border-gray-200/70 shadow-[0_1px_2px_rgba(16,24,40,0.05)] hover:shadow-[0_4px_16px_rgba(16,24,40,0.08)] hover:-translate-y-0.5 transition-all duration-200 rounded-2xl p-4 relative overflow-hidden">
+            <div className="absolute top-0 left-0 w-full h-[3px] bg-[#1e3a5f]/15" />
+            <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-[0.14em]">{kpi.label}</p>
+            <p className="font-display text-[26px] font-extrabold text-gray-900 mt-2 tabular-nums tracking-tight">{kpi.value}</p>
+            <p className="text-xs text-gray-400 mt-1.5">{kpi.sub}</p>
           </div>
         ))}
       </div>
@@ -115,14 +116,14 @@ export default function LeadsPage() {
             <button
               key={stage.key}
               onClick={() => setStatusFilter(isSelected ? 'active' : stage.key)}
-              className={`rounded-lg p-3 text-left border transition-all ${
+              className={`rounded-xl p-3 text-left border transition-all duration-150 ${
                 isSelected
-                  ? 'border-gray-900 bg-gray-900 text-white'
-                  : 'border-gray-200 bg-white hover:bg-gray-50'
+                  ? 'border-[#1e3a5f] bg-[#1e3a5f] shadow-[0_4px_12px_rgba(30,58,95,0.3)]'
+                  : 'border-gray-200/70 bg-white hover:border-gray-300 hover:shadow-sm'
               }`}
             >
-              <p className="text-xs text-gray-500">{stage.label}</p>
-              <p className="text-xl font-bold text-gray-900 mt-1">{count}</p>
+              <p className={`text-xs font-medium ${isSelected ? 'text-sky-200' : 'text-gray-500'}`}>{stage.label}</p>
+              <p className={`text-xl font-bold mt-1 tabular-nums ${isSelected ? 'text-white' : 'text-gray-900'}`}>{count}</p>
               <div
                 className={`h-1 rounded-full mt-2 ${count > 0 ? stage.color : 'bg-gray-200'}`}
                 style={{ width: `${Math.min(100, count * 20)}%` }}
@@ -139,7 +140,7 @@ export default function LeadsPage() {
           <input
             value={search}
             onChange={e => setSearch(e.target.value)}
-            placeholder="Search leadsâ€¦"
+            placeholder="Search leads…"
             className="w-full pl-8 pr-3 py-2 text-sm bg-white border border-gray-200 text-gray-900 placeholder-gray-400 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400"
           />
         </div>
@@ -168,7 +169,7 @@ export default function LeadsPage() {
       {/* Table */}
       <div className="bg-white border border-gray-200 shadow-sm rounded-xl overflow-hidden">
         {loading ? (
-          <div className="py-12 text-center text-sm text-gray-400">Loadingâ€¦</div>
+          <div className="py-12 text-center text-sm text-gray-400">Loading…</div>
         ) : filtered.length === 0 ? (
           <div className="py-12 text-center">
             <TrendingUp className="w-8 h-8 text-gray-400 mx-auto mb-3" />
@@ -177,7 +178,7 @@ export default function LeadsPage() {
               onClick={() => { setAddError(null); setShowAdd(true) }}
               className="text-xs text-blue-600 hover:underline mt-1"
             >
-              Add your first lead â†’
+              Add your first lead →
             </button>
           </div>
         ) : (
@@ -207,7 +208,7 @@ export default function LeadsPage() {
                     )}
                   </td>
                   <td className="px-4 py-3.5 hidden sm:table-cell">
-                    <p className="text-sm text-gray-800">{lead.contact_name || 'â€”'}</p>
+                    <p className="text-sm text-gray-800">{lead.contact_name || '—'}</p>
                     <p className="text-xs text-gray-400">{lead.contact_email || ''}</p>
                   </td>
                   <td className="px-4 py-3.5">
@@ -215,12 +216,12 @@ export default function LeadsPage() {
                   </td>
                   <td className="px-4 py-3.5 hidden md:table-cell">
                     <span className="text-sm text-gray-800 tabular-nums">
-                      {lead.quote_value ? formatAUD(lead.quote_value) : 'â€”'}
+                      {lead.quote_value ? formatAUD(lead.quote_value) : '—'}
                     </span>
                   </td>
                   <td className="px-4 py-3.5 hidden lg:table-cell">
                     <span className="text-sm text-gray-500">
-                      {lead.last_contact_date ? formatDate(lead.last_contact_date) : 'â€”'}
+                      {lead.last_contact_date ? formatDate(lead.last_contact_date) : '—'}
                     </span>
                   </td>
                   <td className="px-4 py-3.5 text-right">
@@ -228,7 +229,7 @@ export default function LeadsPage() {
                       href={`/leads/${lead.id}`}
                       className="text-xs text-blue-600 hover:text-blue-700 opacity-0 group-hover:opacity-100 transition-all"
                     >
-                      View â†’
+                      View →
                     </Link>
                   </td>
                 </tr>

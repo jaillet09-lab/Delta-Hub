@@ -223,7 +223,7 @@ export function LeadProfile({ lead: initialLead }: { lead: Lead }) {
             <p className="text-xs text-gray-500">This lead has been successfully converted</p>
           </div>
           <Link href={`/clients/${lead.converted_client_id}`} className="text-xs text-blue-600 hover:underline">
-            View Client Ã¢â€ â€™
+            View Client →
           </Link>
         </div>
       )}
@@ -413,7 +413,7 @@ export function LeadProfile({ lead: initialLead }: { lead: Lead }) {
                       </div>
                       <div>
                         <p className="text-sm font-medium text-emerald-700">Ready to Convert</p>
-                        <p className="text-xs text-gray-500">Agreement sent Ã¢â‚¬â€ create a client profile</p>
+                        <p className="text-xs text-gray-500">Agreement sent — create a client profile</p>
                       </div>
                     </div>
                     <Button onClick={() => setShowConvert(true)} disabled={!!loading}>
@@ -439,7 +439,7 @@ export function LeadProfile({ lead: initialLead }: { lead: Lead }) {
                 <textarea
                   value={noteText}
                   onChange={e => setNoteText(e.target.value)}
-                  placeholder="Add a noteÃ¢â‚¬Â¦"
+                  placeholder="Add a note…"
                   rows={2}
                   className="w-full bg-gray-50 border border-gray-300 text-gray-900 placeholder-gray-400 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 resize-none"
                 />
@@ -542,7 +542,7 @@ export function LeadProfile({ lead: initialLead }: { lead: Lead }) {
           <div className="rounded-lg bg-gray-50 border border-gray-300 p-4">
             <p className="text-sm font-medium text-gray-800">{lead.business_name}</p>
             <p className="text-xs text-gray-500 mt-0.5">
-              {[lead.contact_name, lead.contact_email].filter(Boolean).join(' Ã‚Â· ')}
+              {[lead.contact_name, lead.contact_email].filter(Boolean).join(' · ')}
             </p>
           </div>
           <p className="text-sm text-gray-500">
@@ -551,7 +551,7 @@ export function LeadProfile({ lead: initialLead }: { lead: Lead }) {
           <div className="flex justify-end gap-3">
             <Button variant="secondary" onClick={() => setShowConvert(false)}>Cancel</Button>
             <Button onClick={handleConvert} disabled={loading === 'convert'}>
-              {loading === 'convert' ? 'ConvertingÃ¢â‚¬Â¦' : 'Convert to Client'}
+              {loading === 'convert' ? 'Converting…' : 'Convert to Client'}
             </Button>
           </div>
         </div>

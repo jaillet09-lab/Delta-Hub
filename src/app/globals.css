@@ -1,17 +1,44 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Instrument+Sans:ital,wght@0,400..700;1,400..700&family=Schibsted+Grotesk:wght@500;600;700;800;900&display=swap');
 
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-body {
-  font-family: 'Inter', system-ui, sans-serif;
-  -webkit-font-smoothing: antialiased;
-  background-color: #ffffff;
-  color: #1a1a1a;
+:root {
+  --brand-navy: #1e3a5f;
+  --brand-navy-deep: #162c49;
+  --surface: #f5f6f8;
 }
 
-::-webkit-scrollbar { width: 4px; height: 4px; }
+body {
+  font-family: 'Instrument Sans', system-ui, -apple-system, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  background-color: var(--surface);
+  color: #16181d;
+  font-feature-settings: 'ss01' on;
+}
+
+h1, h2, h3, .font-display {
+  font-family: 'Schibsted Grotesk', 'Instrument Sans', system-ui, sans-serif;
+  letter-spacing: -0.02em;
+}
+
+.tabular-nums { font-variant-numeric: tabular-nums; }
+
+::selection { background: #1e3a5f; color: #fff; }
+
+::-webkit-scrollbar { width: 5px; height: 5px; }
 ::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: #334155; border-radius: 2px; }
-::-webkit-scrollbar-thumb:hover { background: #475569; }
+::-webkit-scrollbar-thumb { background: #cbd2dc; border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: #9aa6b5; }
+
+/* Subtle page entry */
+@keyframes page-in {
+  from { opacity: 0; transform: translateY(4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+main > * { animation: page-in 0.25s ease-out both; }
+
+@media (prefers-reduced-motion: reduce) {
+  main > * { animation: none; }
+}

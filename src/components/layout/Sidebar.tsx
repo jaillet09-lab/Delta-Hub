@@ -54,22 +54,28 @@ export function Sidebar({ mobileOpen, onMobileClose }: SidebarProps) {
         href={item.href}
         onClick={onMobileClose}
         className={cn(
-          'flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all',
+          'group relative flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-150',
           active
-            ? 'bg-black text-white'
-            : 'text-slate-300 hover:bg-slate-800 hover:text-white'
+            ? 'bg-[#1e3a5f] text-white shadow-[0_1px_8px_rgba(30,58,95,0.5)]'
+            : 'text-slate-400 hover:bg-white/5 hover:text-white hover:translate-x-0.5'
         )}
       >
-        <Icon className="w-[18px] h-[18px] flex-shrink-0" />
+        {active && (
+          <span className="absolute left-0 top-1/2 -translate-y-1/2 -ml-3 h-5 w-1 rounded-r-full bg-sky-400" />
+        )}
+        <Icon className={cn(
+          'w-[18px] h-[18px] flex-shrink-0 transition-colors',
+          active ? 'text-sky-300' : 'text-slate-500 group-hover:text-slate-300'
+        )} />
         {item.label}
       </Link>
     )
   }
 
   const content = (
-    <div className="flex flex-col h-full bg-slate-950 border-r border-slate-800">
+    <div className="flex flex-col h-full bg-[#0b1320] border-r border-white/5">
       {/* Logo */}
-      <div className="flex items-center justify-between px-5 h-14 border-b border-slate-800 flex-shrink-0">
+      <div className="flex items-center justify-between px-5 h-16 border-b border-white/5 flex-shrink-0">
         <Image
           src="/logo-white.png"
           alt="Delta Cleaning"
@@ -89,13 +95,19 @@ export function Sidebar({ mobileOpen, onMobileClose }: SidebarProps) {
       </div>
 
       {/* Main nav */}
-      <nav className="flex-1 py-4 px-3 space-y-0.5 overflow-y-auto">
+      <nav className="flex-1 py-5 px-3 space-y-1 overflow-y-auto">
+        <p className="px-3 pb-2 text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-600">
+          Workspace
+        </p>
         {NAV_ITEMS.map(navLink)}
       </nav>
 
       {/* Bottom nav */}
-      <div className="py-3 px-3 border-t border-slate-800 space-y-0.5">
+      <div className="py-3 px-3 border-t border-white/5 space-y-1">
         {BOTTOM_ITEMS.map(navLink)}
+        <p className="px-3 pt-2 text-[10px] text-slate-700 tracking-wide">
+          Delta Operations Hub
+        </p>
       </div>
     </div>
   )

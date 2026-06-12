@@ -62,7 +62,7 @@ export function AgreementForm({ lead, onSave, onCancel, loading }: AgreementForm
         <div>
           <label className={labelClass}>Frequency</label>
           <select value={form.frequency} onChange={update('frequency')} className={inputClass + ' cursor-pointer'}>
-            <option value="">SelectÃ¢â‚¬Â¦</option>
+            <option value="">Select…</option>
             {['Daily', 'Weekly', 'Fortnightly', 'Monthly', 'Quarterly', 'One-off'].map(f => (
               <option key={f} value={f}>{f}</option>
             ))}
@@ -95,7 +95,7 @@ export function AgreementForm({ lead, onSave, onCancel, loading }: AgreementForm
       </div>
       <div>
         <label className={labelClass}>Special Instructions</label>
-        <textarea value={form.specialInstructions} onChange={update('specialInstructions')} rows={3} className={inputClass + ' resize-none'} placeholder="Access instructions, special requirementsÃ¢â‚¬Â¦" />
+        <textarea value={form.specialInstructions} onChange={update('specialInstructions')} rows={3} className={inputClass + ' resize-none'} placeholder="Access instructions, special requirements…" />
       </div>
       <div>
         <label className={labelClass}>Termination Clause</label>
@@ -114,7 +114,7 @@ export function AgreementForm({ lead, onSave, onCancel, loading }: AgreementForm
       <div className="flex flex-col-reverse sm:flex-row justify-end gap-3 pt-2">
         <Button type="button" variant="secondary" onClick={onCancel}>Cancel</Button>
         <Button type="button" onClick={() => onSave({ ...form, generatedDate: new Date().toISOString() })} disabled={loading}>
-          {loading ? 'SavingÃ¢â‚¬Â¦' : 'Save Agreement'}
+          {loading ? 'Saving…' : 'Save Agreement'}
         </Button>
       </div>
     </div>

@@ -48,7 +48,7 @@ export function TopBar({ userEmail, onMenuClick }: TopBarProps) {
 
   return (
     <header
-      className="bg-white border-b border-gray-200 sticky top-0 z-30"
+      className="bg-white/85 backdrop-blur-md border-b border-gray-200/80 sticky top-0 z-30"
       style={{ paddingTop: 'env(safe-area-inset-top)' }}
     >
     <div className="h-14 flex items-center px-5 lg:px-6 gap-4">
@@ -61,9 +61,14 @@ export function TopBar({ userEmail, onMenuClick }: TopBarProps) {
       </button>
 
       {/* Module name */}
-      <h1 className="text-sm font-semibold text-gray-900 flex-1 tracking-tight">
-        {getModuleLabel(pathname)}
-      </h1>
+      <div className="flex-1 flex items-baseline gap-3 min-w-0">
+        <h1 className="text-[15px] font-bold text-gray-900 tracking-tight">
+          {getModuleLabel(pathname)}
+        </h1>
+        <span className="hidden md:block text-xs text-gray-400">
+          {new Date().toLocaleDateString('en-AU', { weekday: 'long', day: 'numeric', month: 'long' })}
+        </span>
+      </div>
 
       {/* User menu */}
       <div className="relative">
