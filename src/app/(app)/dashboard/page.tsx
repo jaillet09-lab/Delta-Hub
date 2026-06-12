@@ -290,8 +290,26 @@ export default async function DashboardPage() {
     incomplete: 'bg-gray-100 text-gray-600',
   }
 
+  const brisbaneHour = Number(
+    new Date().toLocaleString('en-AU', { timeZone: 'Australia/Brisbane', hour: 'numeric', hour12: false })
+  )
+  const greeting = brisbaneHour < 12 ? 'Good morning' : brisbaneHour < 17 ? 'Good afternoon' : 'Good evening'
+
   return (
     <div className="space-y-4">
+      {/* Greeting header */}
+      <div className="pb-2">
+        <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-gray-400">
+          {new Date().toLocaleDateString('en-AU', { timeZone: 'Australia/Brisbane', weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
+        </p>
+        <h1 className="font-display text-[26px] lg:text-[32px] font-extrabold tracking-tight text-gray-900 mt-1">
+          {greeting}, Jackson
+        </h1>
+        <p className="text-sm text-gray-500 mt-1">
+          {activeClients.length} active client{activeClients.length === 1 ? '' : 's'} · {formatAUD(mrr)} monthly revenue
+        </p>
+      </div>
+
       <KPIGrid
         activeClients={activeClients.length}
         mrr={mrr}
@@ -460,10 +478,11 @@ export default async function DashboardPage() {
       </div>
 
       {/* Analytics section */}
-      <div className="border-t border-gray-200 pt-4 space-y-4">
-        <div className="flex items-center gap-2">
-          <Activity className="w-4 h-4 text-gray-400" />
-          <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Business Insights</p>
+      <div className="pt-4 space-y-4">
+        <div className="flex items-center gap-3">
+          <Activity className="w-4 h-4 text-gray-400 flex-shrink-0" />
+          <p className="text-xs font-semibold text-gray-400 uppercase tracking-[0.14em] whitespace-nowrap">Business Insights</p>
+          <div className="flex-1 h-px bg-gray-200" />
         </div>
 
         {activeClients.length > 0 && (
@@ -508,40 +527,45 @@ export default async function DashboardPage() {
           </div>
         )}
 
-        {/* 12-month forecast */}
+        {/* 12-month forecast — navy ink panel */}
         {mrr > 0 && (
-          <div className="bg-gray-50 border border-gray-200 rounded-xl p-5">
-            <p className="text-gray-400 text-xs font-semibold uppercase tracking-wider mb-4">12-Month Forecast</p>
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-5">
+          <div className="relative overflow-hidden bg-[#0b1320] rounded-2xl p-6">
+            <div
+              className="absolute inset-0 pointer-events-none"
+              style={{ background: 'radial-gradient(ellipse 70% 90% at 85% -20%, rgba(30,58,95,0.95), transparent 60%)' }}
+            />
+            <span aria-hidden className="font-display absolute -right-6 -bottom-16 text-[11rem] font-black leading-none select-none text-white/[0.04]">Δ</span>
+            <p className="relative text-sky-400/80 text-[11px] font-semibold uppercase tracking-[0.18em] mb-5">12-Month Forecast</p>
+            <div className="relative grid grid-cols-2 sm:grid-cols-4 gap-6">
               <div>
-                <p className="text-gray-500 text-xs mb-1">Annual Revenue</p>
-                <p className="text-xl font-bold text-gray-900 tabular-nums">{formatAUD(mrr * 12)}</p>
+                <p className="text-slate-400 text-xs mb-1.5">Annual Revenue</p>
+                <p className="font-display text-2xl font-extrabold text-white tabular-nums tracking-tight">{formatAUD(mrr * 12)}</p>
               </div>
               <div>
-                <p className="text-gray-500 text-xs mb-1">Annual Gross Profit</p>
-                <p className="text-xl font-bold text-gray-900 tabular-nums">
+                <p className="text-slate-400 text-xs mb-1.5">Annual Gross Profit</p>
+                <p className="font-display text-2xl font-extrabold text-white tabular-nums tracking-tight">
                   {totalLabour > 0 ? formatAUD(grossProfit * 12) : '—'}
                 </p>
               </div>
               <div>
-                <p className="text-gray-500 text-xs mb-1">Labour Cost / Year</p>
-                <p className="text-xl font-bold text-gray-900 tabular-nums">
+                <p className="text-slate-400 text-xs mb-1.5">Labour Cost / Year</p>
+                <p className="font-display text-2xl font-extrabold text-white tabular-nums tracking-tight">
                   {totalLabour > 0 ? formatAUD(totalLabour * 12) : '—'}
                 </p>
               </div>
               <div>
-                <p className="text-gray-500 text-xs mb-1">Gross Margin</p>
-                <p className={`text-xl font-bold ${
-                  grossMarginPct == null ? 'text-gray-400'
-                  : grossMarginPct < 30 ? 'text-red-600'
-                  : grossMarginPct >= 55 ? 'text-emerald-600'
-                  : 'text-amber-600'
+                <p className="text-slate-400 text-xs mb-1.5">Gross Margin</p>
+                <p className={`font-display text-2xl font-extrabold tabular-nums tracking-tight ${
+                  grossMarginPct == null ? 'text-slate-500'
+                  : grossMarginPct < 30 ? 'text-red-400'
+                  : grossMarginPct >= 55 ? 'text-emerald-400'
+                  : 'text-amber-400'
                 }`}>
                   {grossMarginPct != null ? `${grossMarginPct.toFixed(0)}%` : '—'}
                 </p>
               </div>
             </div>
-            <p className="text-gray-400 text-xs mt-4">
+            <p className="relative text-slate-500 text-xs mt-5">
               Projections assume current MRR remains constant · Add cleaner costs on client profiles to see gross profit
             </p>
           </div>
@@ -549,9 +573,10 @@ export default async function DashboardPage() {
       </div>
 
       {/* ── XERO FINANCE ─────────────────────────────────────────────────────── */}
-      <div className="border-t border-gray-200 pt-4">
-        <div className="flex items-center gap-2 mb-4">
-          <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Accounting</p>
+      <div className="pt-4">
+        <div className="flex items-center gap-3 mb-4">
+          <p className="text-xs font-semibold text-gray-400 uppercase tracking-[0.14em] whitespace-nowrap">Accounting</p>
+          <div className="flex-1 h-px bg-gray-200" />
         </div>
         <XeroFinanceWidget />
       </div>
