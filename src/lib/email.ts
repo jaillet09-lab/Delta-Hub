@@ -15,7 +15,8 @@ export async function sendEmail(
   try {
     const resend = new Resend(apiKey)
     const result = await resend.emails.send({
-      from: 'Delta Cleaning <noreply@deltacleaning.com.au>',
+      from: 'Delta Cleaning <hello@deltacleaning.com.au>',
+      reply_to: 'hello@deltacleaning.com.au',
       to,
       subject,
       html,
@@ -50,7 +51,8 @@ export async function sendDocumentEmail(
 
   try {
     await resend.emails.send({
-      from: 'Delta Cleaning <documents@deltacleaning.com.au>',
+      from: 'Delta Cleaning <hello@deltacleaning.com.au>',
+      reply_to: 'hello@deltacleaning.com.au',
       to,
       subject: `Document Ready: ${documentTitle}`,
       html: `

@@ -3,6 +3,13 @@
 import { revalidatePath } from 'next/cache'
 import { createAdminClient } from '@/lib/supabase/admin'
 
+export interface CommsEntry {
+  kind: 'email' | 'follow_up_email' | 'sms'
+  at: string          // ISO timestamp
+  subject?: string
+  body: string        // plain text of what was actually sent
+}
+
 export interface ColdLead {
   id: string
   business_name: string
@@ -16,14 +23,31 @@ export interface ColdLead {
   last_called_at: string | null
   next_follow_up: string | null
   follow_up_note: string | null
+  next_attempt: string | null
   has_spoken: boolean
   intro_email_sent_at: string | null
   intro_email_message_id: string | null
   intro_email_subject: string | null
   follow_up_email_sent_at: string | null
   intro_sms_sent_at: string | null
+  comms: CommsEntry[]
   notes: string | null
   created_at: string
+}
+
+// How many days to wait before the next attempt after a no-answer — widens as
+// attempts pile up so you don't burn a lead out.
+function retryDays(callCount: number): number {
+  if (callCount <= 1) return 1
+  if (callCount === 2) return 2
+  if (callCount === 3) return 4
+  return 7
+}
+
+function addDays(days: number): string {
+  const d = new Date(Date.now() + days * 86_400_000)
+  return d.toLocaleString('en-AU', { timeZone: 'Australia/Brisbane', year: 'numeric', month: '2-digit', day: '2-digit' })
+    .split('/').reverse().join('-')
 }
 
 // ─── Import ──────────────────────────────────────────────────────────────────
@@ -137,13 +161,23 @@ export async function logCallAction(
 
   // Reaching a person — these outcomes unlock the intro email / text
   const spokenOutcomes = ['spoke', 'follow_up', 'walkthrough']
+  const newCount = lead.call_count + 1
 
   const update: Record<string, any> = {
-    call_count: lead.call_count + 1,
+    call_count: newCount,
     last_called_at: new Date().toISOString(),
     status: statusMap[outcome],
   }
   if (spokenOutcomes.includes(outcome)) update.has_spoken = true
+
+  // No answer → auto-schedule the next attempt so the system tells you when to
+  // try again. Any other outcome clears the retry timer.
+  if (outcome === 'no_answer') {
+    update.next_attempt = addDays(retryDays(newCount))
+  } else {
+    update.next_attempt = null
+  }
+
   if (followUpDate) update.next_follow_up = followUpDate
   if (note !== undefined) update.follow_up_note = note || null
 
@@ -256,6 +290,13 @@ export async function sendIntroEmailAction(id: string) {
   const messageId = `<intro-${id}-${Date.now()}@deltacleaning.com.au>`
   const subject = `Delta Cleaning — ${lead.business_name}`
 
+  const bodyText =
+    `${greeting}\n\n` +
+    `Great to chat just now — thanks for taking my call. As promised, here's a quick note from Delta Cleaning.\n\n` +
+    `We look after commercial cleaning for businesses${locality} — offices, clinics, retail and shared spaces.\n\n` +
+    `Whenever suits, I'd be glad to come past, walk the site with you and put a fixed monthly price on it. The walk-through is free, takes about fifteen minutes, and there's no obligation.\n\n` +
+    `Just reply here and we'll lock in a time that works for you.\n\n— Jackson, Delta Cleaning`
+
   const html = EMAIL_WRAP(`
   <p>${greeting}</p>
   <p>Great to chat just now — thanks for taking my call. As promised, here’s a quick note from Delta Cleaning.</p>
@@ -266,10 +307,13 @@ export async function sendIntroEmailAction(id: string) {
   const result = await sendThreadedEmail({ to: lead.email, subject, html, messageId })
   if (!result.success) return { error: result.error || 'Email failed to send' }
 
+  const now = new Date().toISOString()
+  const comms: CommsEntry[] = [...(lead.comms ?? []), { kind: 'email', at: now, subject, body: bodyText }]
   await db.from('cold_leads').update({
-    intro_email_sent_at: new Date().toISOString(),
+    intro_email_sent_at: now,
     intro_email_message_id: messageId,
     intro_email_subject: subject,
+    comms,
   }).eq('id', id)
   revalidatePath('/calls')
   return { success: true }
@@ -292,6 +336,11 @@ export async function sendFollowUpEmailAction(id: string) {
     ? lead.intro_email_subject
     : `Re: ${lead.intro_email_subject}`
 
+  const bodyText =
+    `${greeting}\n\n` +
+    `Just following up on my note below — I know things get busy.\n\n` +
+    `The offer still stands: a free 15-minute walk-through and a fixed monthly price, no obligation. If you'd like me to come past, just reply with a day that suits and I'll make it work.\n\n— Jackson, Delta Cleaning`
+
   const html = EMAIL_WRAP(`
   <p>${greeting}</p>
   <p>Just following up on my note below — I know things get busy.</p>
@@ -305,14 +354,22 @@ export async function sendFollowUpEmailAction(id: string) {
   })
   if (!result.success) return { error: result.error || 'Email failed to send' }
 
-  await db.from('cold_leads').update({ follow_up_email_sent_at: new Date().toISOString() }).eq('id', id)
+  const now = new Date().toISOString()
+  const comms: CommsEntry[] = [...(lead.comms ?? []), { kind: 'follow_up_email', at: now, subject, body: bodyText }]
+  await db.from('cold_leads').update({ follow_up_email_sent_at: now, comms }).eq('id', id)
   revalidatePath('/calls')
   return { success: true }
 }
 
-export async function markIntroSmsSentAction(id: string) {
+export async function markIntroSmsSentAction(id: string, body?: string) {
   const db = createAdminClient() as any
-  await db.from('cold_leads').update({ intro_sms_sent_at: new Date().toISOString() }).eq('id', id)
+  const { data: lead } = await db.from('cold_leads').select('comms').eq('id', id).single()
+  const now = new Date().toISOString()
+  const update: Record<string, any> = { intro_sms_sent_at: now }
+  if (body) {
+    update.comms = [...((lead?.comms as CommsEntry[]) ?? []), { kind: 'sms', at: now, body }]
+  }
+  await db.from('cold_leads').update(update).eq('id', id)
   revalidatePath('/calls')
   return { success: true }
 }

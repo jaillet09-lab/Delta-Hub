@@ -22,19 +22,22 @@ export async function GET(request: Request) {
   const db = createAdminClient() as any
   const today = brisbaneToday()
 
-  const { data: due, error } = await db
+  // Pull everything still in play, then split into walk-throughs, due follow-ups
+  // and due retries (no-answer leads whose next attempt date has arrived).
+  const { data: rows, error } = await db
     .from('cold_leads')
-    .select('business_name, contact_name, phone, suburb, status, next_follow_up, follow_up_note, call_count')
-    .lte('next_follow_up', today)
-    .not('next_follow_up', 'is', null)
-    .in('status', ['follow_up', 'walkthrough', 'called', 'new'])
+    .select('business_name, contact_name, phone, suburb, status, next_follow_up, next_attempt, follow_up_note, call_count')
+    .in('status', ['follow_up', 'walkthrough', 'called'])
     .order('next_follow_up', { ascending: true })
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
-  if (!due || due.length === 0) return NextResponse.json({ ok: true, due: 0 })
 
-  const walkthroughs = due.filter((l: any) => l.status === 'walkthrough')
-  const followUps    = due.filter((l: any) => l.status !== 'walkthrough')
+  const walkthroughs = (rows ?? []).filter((l: any) => l.status === 'walkthrough')
+  const followUps    = (rows ?? []).filter((l: any) => l.status !== 'walkthrough' && l.next_follow_up && l.next_follow_up <= today)
+  const retries      = (rows ?? []).filter((l: any) => l.status === 'called' && l.next_attempt && l.next_attempt <= today)
+
+  const due = [...walkthroughs, ...followUps, ...retries]
+  if (due.length === 0) return NextResponse.json({ ok: true, due: 0 })
 
   const row = (l: any) => `
     <tr>
@@ -54,6 +57,7 @@ export async function GET(request: Request) {
   <p style="font-size:15px;">Today's call list from the cold-call deck:</p>
   ${walkthroughs.length > 0 ? `<h3 style="font-size:14px;margin:18px 0 6px;">Walk-throughs (${walkthroughs.length})</h3>${table(walkthroughs)}` : ''}
   ${followUps.length > 0 ? `<h3 style="font-size:14px;margin:18px 0 6px;">Follow-ups due (${followUps.length})</h3>${table(followUps)}` : ''}
+  ${retries.length > 0 ? `<h3 style="font-size:14px;margin:18px 0 6px;">Try again today (${retries.length})</h3>${table(retries)}` : ''}
   <p style="margin-top:20px;font-size:14px;">
     <a href="https://portal.deltacleaning.com.au/calls" style="color:#1e3a5f;font-weight:600;">Open the call deck →</a>
   </p>
