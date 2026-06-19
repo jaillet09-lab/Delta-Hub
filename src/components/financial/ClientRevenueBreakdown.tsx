@@ -37,7 +37,9 @@ export function ClientRevenueBreakdown({ clients }: ClientRevenueBreakdownProps)
         annual: 1 / 12,
         one_off: 1,
       }
-      const visitsPerMonth = c.frequency ? (freqMultipliers[c.frequency] ?? 1) : 1
+      const dpw = (c as any).days_per_week && (c as any).days_per_week > 0 ? (c as any).days_per_week : 1
+      const perDay = c.frequency ? (freqMultipliers[c.frequency] ?? 1) : 1
+      const visitsPerMonth = (c.frequency === 'weekly' || c.frequency === 'fortnightly') ? perDay * dpw : perDay
       const computedCost = hourlyRate * hoursPerVisit * visitsPerMonth
 
       // Prefer the stored aggregated figures (these already roll up every site

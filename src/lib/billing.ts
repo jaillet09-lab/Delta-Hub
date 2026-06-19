@@ -5,18 +5,36 @@ import type { FrequencyType } from '@/types/app'
  * Formula: monthly = ratePerVisit × (visitsPerYear / 12)
  */
 export const FREQUENCY_MULTIPLIERS: Record<FrequencyType, number> = {
-  daily:        365 / 12,  // ~30.42 visits/month
-  weekly:       52  / 12,  // ~4.33 visits/month
-  fortnightly:  26  / 12,  // ~2.17 visits/month
+  daily:        365 / 12,  // ~30.42 visits/month (every day)
+  weekly:       52  / 12,  // ~4.33 visits/month PER cleaning day
+  fortnightly:  26  / 12,  // ~2.17 visits/month PER cleaning day
   monthly:      1,          // 1 visit/month
   quarterly:    4   / 12,  // ~0.33 visits/month
   annual:       1   / 12,  // ~0.083 visits/month
   one_off:      1,          // treated as one visit
 }
 
-export function calculateMonthlyValue(ratePerVisit: number, frequency: FrequencyType): number {
-  const multiplier = FREQUENCY_MULTIPLIERS[frequency]
-  return Math.round(ratePerVisit * multiplier * 100) / 100
+/**
+ * Visits per month for a given frequency, factoring in how many days per week
+ * the site is cleaned. Weekly @ 5 days/wk = 5 × 4.33 ≈ 21.65 visits/month.
+ * days/week only applies to weekly & fortnightly cadences; daily already covers
+ * the whole week, and monthly/quarterly/annual/one-off are single occurrences.
+ */
+export function visitsPerMonth(frequency: FrequencyType, daysPerWeek = 1): number {
+  const d = daysPerWeek && daysPerWeek > 0 ? daysPerWeek : 1
+  switch (frequency) {
+    case 'weekly':      return d * (52 / 12)
+    case 'fortnightly': return d * (26 / 12)
+    default:            return FREQUENCY_MULTIPLIERS[frequency] ?? 1
+  }
+}
+
+export function calculateMonthlyValue(
+  ratePerVisit: number,
+  frequency: FrequencyType,
+  daysPerWeek = 1,
+): number {
+  return Math.round(ratePerVisit * visitsPerMonth(frequency, daysPerWeek) * 100) / 100
 }
 
 export function calculateAnnualValue(monthlyValue: number): number {
@@ -63,16 +81,17 @@ export function calculateProfitBreakdown(
   ratePerVisit: number,
   frequency: FrequencyType,
   cleanerHourlyRate: number,
-  cleanerHoursPerVisit: number
+  cleanerHoursPerVisit: number,
+  daysPerWeek = 1,
 ): ProfitBreakdown {
-  const visitsPerMonth  = FREQUENCY_MULTIPLIERS[frequency]
-  const monthlyRevenue  = Math.round(ratePerVisit * visitsPerMonth * 100) / 100
-  const monthlyLabour   = Math.round(cleanerHourlyRate * cleanerHoursPerVisit * visitsPerMonth * 100) / 100
+  const visits          = visitsPerMonth(frequency, daysPerWeek)
+  const monthlyRevenue  = Math.round(ratePerVisit * visits * 100) / 100
+  const monthlyLabour   = Math.round(cleanerHourlyRate * cleanerHoursPerVisit * visits * 100) / 100
   const monthlyProfit   = Math.round((monthlyRevenue - monthlyLabour) * 100) / 100
   const marginPct       = monthlyRevenue > 0 ? Math.round((monthlyProfit / monthlyRevenue) * 1000) / 10 : 0
 
   return {
-    visitsPerMonth:  Math.round(visitsPerMonth * 100) / 100,
+    visitsPerMonth:  Math.round(visits * 100) / 100,
     monthlyRevenue,
     monthlyLabour,
     monthlyProfit,

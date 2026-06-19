@@ -105,8 +105,14 @@ export function ClientForm({ defaultValues, defaultSites, action, submitLabel = 
   const hoursNum = parseFloat(cleanerHours) || 0
   const hasCosts = hrNum > 0 && hoursNum > 0 && rateNum > 0
 
-  const breakdown    = hasCosts ? calculateProfitBreakdown(rateNum, frequency, hrNum, hoursNum) : null
-  const monthlyValue = rateNum > 0 ? calculateMonthlyValue(rateNum, frequency) : 0
+  // Days per week only affects weekly/fortnightly billing. Use the explicit
+  // "times/week" selector, falling back to the count of selected cleaning days.
+  const effectiveDpw = (frequency === 'weekly' || frequency === 'fortnightly')
+    ? (dpwNum > 0 ? dpwNum : (selectedDays.length || 1))
+    : 1
+
+  const breakdown    = hasCosts ? calculateProfitBreakdown(rateNum, frequency, hrNum, hoursNum, effectiveDpw) : null
+  const monthlyValue = rateNum > 0 ? calculateMonthlyValue(rateNum, frequency, effectiveDpw) : 0
   const annualValue  = calculateAnnualValue(monthlyValue)
 
   function toggleService(type: ExtendedServiceType) {

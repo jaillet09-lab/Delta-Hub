@@ -400,7 +400,7 @@ export default async function ClientProfilePage({ params }: { params: { id: stri
             {clientSites.map((site: any, i: number) => {
               const siteRate = site.rate_per_visit ? parseFloat(site.rate_per_visit) : 0
               const siteMRR  = siteRate && site.frequency
-                ? calculateMonthlyValue(siteRate, site.frequency)
+                ? calculateMonthlyValue(siteRate, site.frequency, site.days_per_week || 1)
                 : 0
               return (
                 <div key={site.id} className="border border-gray-100 rounded-xl p-4 bg-gray-50">

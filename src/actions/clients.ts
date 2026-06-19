@@ -5,7 +5,7 @@ import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { clientSchema } from '@/lib/validations/client.schema'
-import { calculateMonthlyValue, calculateAnnualValue, FREQUENCY_MULTIPLIERS } from '@/lib/billing'
+import { calculateMonthlyValue, calculateAnnualValue, visitsPerMonth } from '@/lib/billing'
 import { sendPushToRole } from '@/lib/push'
 import type { FrequencyType, ServiceType } from '@/types/app'
 
@@ -17,7 +17,8 @@ function parseSites(raw: string | null): any[] {
 function calcSiteMonthlyValue(site: any): number {
   const rate = parseFloat(site.rate_per_visit) || 0
   if (!rate || !site.frequency) return 0
-  return calculateMonthlyValue(rate, site.frequency as FrequencyType)
+  const dpw = parseInt(site.days_per_week) || 1
+  return calculateMonthlyValue(rate, site.frequency as FrequencyType, dpw)
 }
 
 export async function createClientAction(formData: FormData) {
@@ -73,14 +74,15 @@ export async function createClientAction(formData: FormData) {
     ? sitesData.reduce((sum: number, s: any) => sum + calcSiteMonthlyValue(s), 0)
     : null
 
+  const singleDpw = Number(days_per_week) || 1
   const monthly_value = isMultiSite
     ? (multiSiteMonthly || null)
     : rate_per_visit && frequency
-      ? calculateMonthlyValue(rate_per_visit, frequency as FrequencyType)
+      ? calculateMonthlyValue(rate_per_visit, frequency as FrequencyType, singleDpw)
       : null
   const annual_value = monthly_value ? calculateAnnualValue(monthly_value) : null
 
-  // For multi-site, aggregate labour cost from all sites
+  // For multi-site, aggregate labour cost from all sites (days/week aware)
   let multiSiteMonthlyLabour: number | null = null
   if (isMultiSite && sitesData.length > 0) {
     let total = 0
@@ -88,13 +90,20 @@ export async function createClientAction(formData: FormData) {
       const rate  = parseFloat(site.cleaner_hourly_rate)    || 0
       const hours = parseFloat(site.cleaner_hours_per_visit) || 0
       const freq  = site.frequency as FrequencyType
-      if (rate && hours && freq && FREQUENCY_MULTIPLIERS[freq]) {
-        total += rate * hours * FREQUENCY_MULTIPLIERS[freq]
+      const dpw   = parseInt(site.days_per_week) || 1
+      if (rate && hours && freq) {
+        total += rate * hours * visitsPerMonth(freq, dpw)
       }
     }
     if (total > 0) multiSiteMonthlyLabour = Math.round(total * 100) / 100
   }
-  const monthly_labour_cost = isMultiSite ? multiSiteMonthlyLabour : null
+
+  // Single-site labour from the cleaner rate × hours × visits/month
+  const singleSiteLabour = (!isMultiSite && cleanerHourlyRate && cleanerHoursPerVisit && frequency && rate_per_visit)
+    ? Math.round(cleanerHourlyRate * cleanerHoursPerVisit * visitsPerMonth(frequency as FrequencyType, singleDpw) * 100) / 100
+    : null
+
+  const monthly_labour_cost = isMultiSite ? multiSiteMonthlyLabour : singleSiteLabour
   const monthly_profit = (monthly_value !== null && monthly_labour_cost !== null)
     ? Math.round((monthly_value - monthly_labour_cost) * 100) / 100
     : null
@@ -129,9 +138,9 @@ export async function createClientAction(formData: FormData) {
       access_details:         isMultiSite ? null : (access_details || null),
       assigned_cleaner_id:    isMultiSite ? null : (assigned_cleaner_id || null),
       additional_services:    additionalServices,
-      monthly_labour_cost:    isMultiSite ? monthly_labour_cost : null,
-      monthly_profit:         isMultiSite ? monthly_profit : null,
-      margin_pct:             isMultiSite ? margin_pct : null,
+      monthly_labour_cost,
+      monthly_profit,
+      margin_pct,
     })
     .select('id')
     .single()
@@ -252,14 +261,15 @@ export async function updateClientAction(id: string, formData: FormData) {
     ? sitesData.reduce((sum: number, s: any) => sum + calcSiteMonthlyValue(s), 0)
     : null
 
+  const singleDpwUpd = Number(dpw) || 1
   const monthly_value = isMultiSite
     ? (multiSiteMonthlyUpd || null)
     : rate_per_visit && frequency
-      ? calculateMonthlyValue(rate_per_visit, frequency as FrequencyType)
+      ? calculateMonthlyValue(rate_per_visit, frequency as FrequencyType, singleDpwUpd)
       : null
   const annual_value = monthly_value ? calculateAnnualValue(monthly_value) : null
 
-  // For multi-site, aggregate labour cost from all sites
+  // For multi-site, aggregate labour cost from all sites (days/week aware)
   let multiSiteMonthlyLabourUpd: number | null = null
   if (isMultiSite && sitesData.length > 0) {
     let total = 0
@@ -267,13 +277,19 @@ export async function updateClientAction(id: string, formData: FormData) {
       const rate  = parseFloat(site.cleaner_hourly_rate)    || 0
       const hours = parseFloat(site.cleaner_hours_per_visit) || 0
       const freq  = site.frequency as FrequencyType
-      if (rate && hours && freq && FREQUENCY_MULTIPLIERS[freq]) {
-        total += rate * hours * FREQUENCY_MULTIPLIERS[freq]
+      const sdpw  = parseInt(site.days_per_week) || 1
+      if (rate && hours && freq) {
+        total += rate * hours * visitsPerMonth(freq, sdpw)
       }
     }
     if (total > 0) multiSiteMonthlyLabourUpd = Math.round(total * 100) / 100
   }
-  const monthly_labour_cost_upd = isMultiSite ? multiSiteMonthlyLabourUpd : null
+
+  const singleSiteLabourUpd = (!isMultiSite && cleanerHourlyRateUpd && cleanerHoursPerVisitUpd && frequency && rate_per_visit)
+    ? Math.round(cleanerHourlyRateUpd * cleanerHoursPerVisitUpd * visitsPerMonth(frequency as FrequencyType, singleDpwUpd) * 100) / 100
+    : null
+
+  const monthly_labour_cost_upd = isMultiSite ? multiSiteMonthlyLabourUpd : singleSiteLabourUpd
   const monthly_profit_upd = (monthly_value !== null && monthly_labour_cost_upd !== null)
     ? Math.round((monthly_value - monthly_labour_cost_upd) * 100) / 100
     : null
@@ -308,9 +324,9 @@ export async function updateClientAction(id: string, formData: FormData) {
       access_details:          isMultiSite ? null : (ad || null),
       assigned_cleaner_id:     isMultiSite ? null : (aci || null),
       additional_services:     additionalServicesUpd,
-      monthly_labour_cost:     isMultiSite ? monthly_labour_cost_upd : null,
-      monthly_profit:          isMultiSite ? monthly_profit_upd : null,
-      margin_pct:              isMultiSite ? margin_pct_upd : null,
+      monthly_labour_cost:     monthly_labour_cost_upd,
+      monthly_profit:          monthly_profit_upd,
+      margin_pct:              margin_pct_upd,
     })
     .eq('id', id)
 

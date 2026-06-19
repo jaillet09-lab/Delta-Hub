@@ -106,7 +106,7 @@ export function SiteBuilder({ defaultSites, cleaners = [], onChange }: Props) {
         const open = expanded.has(site._localId)
         const rate = parseFloat(site.rate_per_visit) || 0
         const monthly = rate > 0 && site.frequency
-          ? calculateMonthlyValue(rate, site.frequency as any)
+          ? calculateMonthlyValue(rate, site.frequency as any, parseInt(site.days_per_week) || 1)
           : 0
 
         return (
