@@ -61,7 +61,10 @@ export default async function EditClientPage({
 
   async function action(formData: FormData) {
     'use server'
-    return updateClientAction(params.id, formData)
+    // Read id from the form body rather than a captured closure variable so the
+    // save doesn't depend on Next.js server-action arg encryption (deploy-safe).
+    const clientId = (formData.get('__client_id') as string) || params.id
+    return updateClientAction(clientId, formData)
   }
 
   return (

@@ -191,6 +191,9 @@ export function ClientForm({ defaultValues, defaultSites, action, submitLabel = 
 
   return (
     <form onSubmit={handleSubmit} className="space-y-5">
+      {/* Carry the client id through the form body (not an encrypted server-action
+          closure) so saving survives any deploy mismatch. */}
+      {defaultValues?.id && <input type="hidden" name="__client_id" defaultValue={String(defaultValues.id)} />}
       {errors._form && (
         <div className="bg-red-50 border border-red-200 text-red-700 text-sm rounded-lg px-4 py-3">
           {errors._form.join(', ')}

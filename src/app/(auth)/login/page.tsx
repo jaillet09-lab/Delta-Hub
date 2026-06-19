@@ -27,7 +27,7 @@ export default function LoginPage() {
     })
 
     if (authError) {
-      setError('Invalid username or password. Please try again.')
+      setError('Login incorrect. Please check your username and password and try again.')
       setLoading(false)
       return
     }
@@ -52,7 +52,7 @@ export default function LoginPage() {
       // signOut() revokes every session globally, killing the portal login too
       await supabase.auth.signOut({ scope: 'local' })
       if (portalError) {
-        setError('Sign in failed. Please try again.')
+        setError('Login incorrect. Please check your username and password and try again.')
         setLoading(false)
         return
       }
