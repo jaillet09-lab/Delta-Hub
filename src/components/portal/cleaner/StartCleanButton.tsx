@@ -21,8 +21,12 @@ function haversineKm(lat1: number, lon1: number, lat2: number, lon2: number) {
 
 async function geocode(q: string) {
   try {
+    // Abort after 6s so a slow/blocked geocoder can never hang the Start flow
+    const ctrl = new AbortController()
+    const t = setTimeout(() => ctrl.abort(), 6000)
     const r = await fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(q)}&format=json&limit=1&countrycodes=au`,
-      { headers: { 'Accept-Language': 'en', 'User-Agent': 'DeltaCleaningPortal/1.0' } })
+      { headers: { 'Accept-Language': 'en', 'User-Agent': 'DeltaCleaningPortal/1.0' }, signal: ctrl.signal })
+    clearTimeout(t)
     const d = await r.json()
     return d?.[0] ? { lat: parseFloat(d[0].lat), lon: parseFloat(d[0].lon) } : null
   } catch { return null }
@@ -41,16 +45,24 @@ export function StartCleanButton({ clientId, address, suburb, label: customLabel
   const [step, setStep]   = useState<Step>('idle')
   const [err,  setErr]    = useState<string | null>(null)
 
+  // Calls the server action with a hard guard so the button can never hang on
+  // "Starting…": any thrown/timed-out error surfaces and resets the button.
+  async function runStart() {
+    setStep('starting')
+    try {
+      const r = await startCleanForClientAction(clientId)
+      if (r?.error) { setErr(r.error); setStep('error') } else { router.refresh() }
+    } catch {
+      setErr('Could not start the clean. Check your connection and try again.')
+      setStep('error')
+    }
+  }
+
   async function handleStart() {
     setErr(null)
 
     // No address stored — skip location check
-    if (!address && !suburb) {
-      setStep('starting')
-      const r = await startCleanForClientAction(clientId)
-      if (r.error) { setErr(r.error); setStep('error') } else { router.refresh() }
-      return
-    }
+    if (!address && !suburb) { await runStart(); return }
 
     // 1. GPS
     setStep('locating')
@@ -73,12 +85,7 @@ export function StartCleanButton({ clientId, address, suburb, label: customLabel
     }
 
     // Can't geocode — let them through
-    if (!coords) {
-      setStep('starting')
-      const r = await startCleanForClientAction(clientId)
-      if (r.error) { setErr(r.error); setStep('error') } else { router.refresh() }
-      return
-    }
+    if (!coords) { await runStart(); return }
 
     // 3. Distance check — 1 km with address, 3 km suburb only
     const dist   = haversineKm(pos.coords.latitude, pos.coords.longitude, coords.lat, coords.lon)
@@ -91,9 +98,7 @@ export function StartCleanButton({ clientId, address, suburb, label: customLabel
     }
 
     // 4. Start
-    setStep('starting')
-    const r = await startCleanForClientAction(clientId)
-    if (r.error) { setErr(r.error); setStep('error') } else { router.refresh() }
+    await runStart()
   }
 
   const busy = step === 'locating' || step === 'geocoding' || step === 'starting'
