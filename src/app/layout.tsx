@@ -49,7 +49,16 @@ export default function RootLayout({
         <Script id="sw-register" strategy="afterInteractive">{`
           if ('serviceWorker' in navigator) {
             navigator.serviceWorker.register('/sw.js', { scope: '/' })
+              .then((reg) => { reg.update() })
               .catch(() => {})
+            // When a new service worker takes control, reload once so the page
+            // is always running the latest deployed code (no manual refresh).
+            let __reloaded = false
+            navigator.serviceWorker.addEventListener('controllerchange', () => {
+              if (__reloaded) return
+              __reloaded = true
+              window.location.reload()
+            })
           }
         `}</Script>
       </body>

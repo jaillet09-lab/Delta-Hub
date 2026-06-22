@@ -1,4 +1,4 @@
-const CACHE = 'delta-v4'
+const CACHE = 'delta-v5'
 
 // ── Install: skip waiting immediately ────────────────────────────────────
 self.addEventListener('install', (e) => {
