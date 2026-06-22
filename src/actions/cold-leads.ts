@@ -111,6 +111,31 @@ function guessColumns(headers: string[]): ColumnMap {
   }
 }
 
+// Some lead lists put a street address in the "Company" cell. Detect that so we
+// can fall back to a real company name derived from the website/email domain.
+function looksLikeAddress(s: string | null): boolean {
+  // Addresses in these lists always have commas plus either a leading street
+  // number or a postcode. Requiring a comma avoids false hits on names like
+  // "St James College" or "3M".
+  if (!s || !s.includes(',')) return false
+  return /^\s*\d/.test(s) || /\b\d{4,5}\b/.test(s)
+}
+
+function domainFrom(value: string | null): string | null {
+  if (!value) return null
+  let h = value.trim().toLowerCase()
+  const at = h.indexOf('@')
+  if (at >= 0) h = h.slice(at + 1)
+  h = h.replace(/^https?:\/\//, '').replace(/^www\./, '').split('/')[0]
+  const parts = h.split('.').filter(Boolean)
+  return parts.length >= 2 ? parts[0] : null
+}
+
+function companyFromDomain(sld: string | null): string | null {
+  if (!sld) return null
+  return sld.length <= 4 ? sld.toUpperCase() : sld.charAt(0).toUpperCase() + sld.slice(1)
+}
+
 // Step 1: parse and return columns + a guess so the user can confirm the mapping
 export async function previewColdLeadsCsvAction(csvText: string) {
   const rows = parseCsv(csvText)
@@ -134,17 +159,31 @@ export async function importColdLeadsAction(csvText: string, mapping?: ColumnMap
   const col = mapping
   if (col.business < 0) return { error: 'Choose which column holds the business name.' }
 
+  // Find a website/url column so we can recover a real company name when the
+  // mapped business cell turns out to be a street address (common in JLL-style
+  // exports where "Company" holds the office address).
+  const headers = rows[0].map(h => h.trim().toLowerCase())
+  const websiteCol = detectColumn(headers, ['website', 'url', 'domain', 'web'])
+
   const get = (r: string[], i: number) => (i >= 0 ? (r[i] ?? '').trim() || null : null)
 
   const leads = rows.slice(1)
-    .map(r => ({
-      business_name: get(r, col.business),
-      contact_name:  get(r, col.contact),
-      phone:         get(r, col.phone),
-      email:         get(r, col.email),
-      suburb:        get(r, col.suburb),
-      industry:      get(r, col.industry),
-    }))
+    .map(r => {
+      let business = get(r, col.business)
+      const email = get(r, col.email)
+      if (looksLikeAddress(business)) {
+        const derived = companyFromDomain(domainFrom(get(r, websiteCol)) || domainFrom(email))
+        if (derived) business = derived
+      }
+      return {
+        business_name: business,
+        contact_name:  get(r, col.contact),
+        phone:         get(r, col.phone),
+        email,
+        suburb:        get(r, col.suburb),
+        industry:      get(r, col.industry),
+      }
+    })
     .filter(l => l.business_name)
 
   if (leads.length === 0) return { error: 'No usable rows found under the header.' }
