@@ -2,7 +2,7 @@
 const nextConfig = {
   serverExternalPackages: ['pdf-parse'],
   experimental: {
-    serverComponentsExternalPackages: ['pdf-parse', 'puppeteer-core', '@sparticuz/chromium-min'],
+    serverComponentsExternalPackages: ['pdf-parse'],
   },
   images: {
     remotePatterns: [
