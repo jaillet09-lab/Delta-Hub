@@ -33,7 +33,7 @@ export async function renderDocumentPdf(node: ReactElement): Promise<Buffer> {
   const puppeteer = await import('puppeteer-core')
 
   const PACK = process.env.CHROMIUM_PACK_URL
-    || 'https://github.com/Sparticuz/chromium/releases/download/v131.0.1/chromium-v131.0.1-pack.tar'
+    || 'https://github.com/Sparticuz/chromium/releases/download/v123.0.1/chromium-v123.0.1-pack.tar'
 
   const browser = await puppeteer.launch({
     args: chromium.args,
