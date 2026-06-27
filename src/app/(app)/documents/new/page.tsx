@@ -1,25 +1,7 @@
-import { createClient } from '@/lib/supabase/server'
-import { DocumentBuilder } from '@/components/documents/DocumentBuilder'
+import { redirect } from 'next/navigation'
 
-export default async function NewDocumentPage({
-  searchParams,
-}: {
-  searchParams: { client?: string; type?: string }
-}) {
-  const supabase = createClient()
-  const { data: clients } = await supabase
-    .from('clients')
-    .select('*')
-    .eq('active', true)
-    .order('business_name')
-
-  return (
-    <div className="-m-6 lg:-m-8">
-      <DocumentBuilder
-        clients={clients || []}
-        preselectedClientId={searchParams.client}
-        preselectedType={searchParams.type as any}
-      />
-    </div>
-  )
+// The document system is now proposal-first: new documents are created from the
+// Documents list ("New proposal"), which inserts a record and opens the editor.
+export default function NewDocumentRedirect() {
+  redirect('/documents')
 }
