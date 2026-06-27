@@ -26,14 +26,19 @@ export async function renderDocumentPdf(node: ReactElement): Promise<Buffer> {
   html{-webkit-print-color-adjust:exact;print-color-adjust:exact;}
 </style></head><body>${body}</body></html>`
 
-  // Vercel serverless: @sparticuz/chromium provides the Chrome binary.
-  const chromium = (await import('@sparticuz/chromium')).default
+  // Vercel serverless: chromium-min keeps the function small and downloads the
+  // full Chrome pack (binary + shared libs) at runtime, which avoids the
+  // size-limit stripping that breaks the bundled package (missing libnss3.so).
+  const chromium = (await import('@sparticuz/chromium-min')).default
   const puppeteer = await import('puppeteer-core')
+
+  const PACK = process.env.CHROMIUM_PACK_URL
+    || 'https://github.com/Sparticuz/chromium/releases/download/v131.0.1/chromium-v131.0.1-pack.tar'
 
   const browser = await puppeteer.launch({
     args: chromium.args,
     defaultViewport: { width: 794, height: 1123 },
-    executablePath: await chromium.executablePath(),
+    executablePath: await chromium.executablePath(PACK),
     headless: true,
   })
   try {
