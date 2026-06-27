@@ -17,7 +17,7 @@ export async function GET() {
     out.args = chromium.args?.slice?.(0, 4)
 
     const fs = await import('fs')
-    function walk(dir: string, depth = 0): string[] {
+    const walk = (dir: string, depth = 0): string[] => {
       if (depth > 3) return []
       let files: string[] = []
       try {
