@@ -15,6 +15,12 @@ const page: CSSProperties = { position: 'relative', width: 794, minHeight: 1123,
 const navyPage: CSSProperties = { position: 'relative', width: 794, minHeight: 1123, background: NAVY, color: '#fff', overflow: 'hidden', flexShrink: 0, boxShadow: '0 8px 40px rgba(15,23,42,.22)' }
 const monoEyebrow: CSSProperties = { fontFamily: MONO, fontSize: 11, letterSpacing: '.2em', textTransform: 'uppercase', color: '#94A3B8', marginBottom: 14 }
 
+// Invisible anchor token for DocuSign tab placement (white, tiny — in the PDF
+// text layer but not visible). DocuSign finds the string and anchors tabs to it.
+const Anchor = ({ t }: { t: string }) => (
+  <span style={{ color: '#ffffff', fontSize: 1, lineHeight: 0, userSelect: 'none' }}>{t}</span>
+)
+
 function Header({ label }: { label: string }) {
   return (
     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingBottom: 18, borderBottom: '1px solid #E2E8F0' }}>
@@ -174,11 +180,11 @@ export function AgreementDocument({ data }: { data: AgreementData }) {
             <div style={{ fontFamily: MONO, fontSize: 10, letterSpacing: '.18em', textTransform: 'uppercase', color: '#94A3B8', marginBottom: 18 }}>Service Provider</div>
             <div style={{ fontFamily: DISPLAY, fontWeight: 600, fontSize: 16 }}>{data.providerName}</div>
             <div style={{ fontSize: 12.5, color: '#64748B', marginBottom: 30 }}>ABN {data.providerABN}</div>
-            <div style={{ borderBottom: `1px solid ${NAVY}`, height: 38 }} />
+            <div style={{ borderBottom: `1px solid ${NAVY}`, height: 38 }}><Anchor t="DSPROVIDERSIGN" /></div>
             <div style={{ fontSize: 11, color: '#94A3B8', marginTop: 6 }}>Signature</div>
             <div style={{ marginTop: 22, borderBottom: '1px solid #CBD5E1', height: 24 }} />
             <div style={{ fontSize: 11, color: '#94A3B8', marginTop: 6 }}>Name · {data.contactName}, {data.contactRole}</div>
-            <div style={{ marginTop: 22, borderBottom: '1px solid #CBD5E1', height: 24 }} />
+            <div style={{ marginTop: 22, borderBottom: '1px solid #CBD5E1', height: 24 }}><Anchor t="DSPROVIDERDATE" /></div>
             <div style={{ fontSize: 11, color: '#94A3B8', marginTop: 6 }}>Date</div>
           </div>
           {/* Client block — anchor for DocuSign client tabs */}
@@ -186,11 +192,11 @@ export function AgreementDocument({ data }: { data: AgreementData }) {
             <div style={{ fontFamily: MONO, fontSize: 10, letterSpacing: '.18em', textTransform: 'uppercase', color: '#94A3B8', marginBottom: 18 }}>Client</div>
             <div style={{ fontFamily: DISPLAY, fontWeight: 600, fontSize: 16 }}>{data.clientName}</div>
             <div style={{ fontSize: 12.5, color: '#64748B', marginBottom: 30 }}>ABN {data.clientABN}</div>
-            <div style={{ borderBottom: `1px solid ${NAVY}`, height: 38 }} />
+            <div style={{ borderBottom: `1px solid ${NAVY}`, height: 38 }}><Anchor t="DSCLIENTSIGN" /></div>
             <div style={{ fontSize: 11, color: '#94A3B8', marginTop: 6 }}>Signature</div>
-            <div style={{ marginTop: 22, borderBottom: '1px solid #CBD5E1', height: 24 }} />
+            <div style={{ marginTop: 22, borderBottom: '1px solid #CBD5E1', height: 24 }}><Anchor t="DSCLIENTNAME" /></div>
             <div style={{ fontSize: 11, color: '#94A3B8', marginTop: 6 }}>Name &amp; position</div>
-            <div style={{ marginTop: 22, borderBottom: '1px solid #CBD5E1', height: 24 }} />
+            <div style={{ marginTop: 22, borderBottom: '1px solid #CBD5E1', height: 24 }}><Anchor t="DSCLIENTDATE" /></div>
             <div style={{ fontSize: 11, color: '#94A3B8', marginTop: 6 }}>Date</div>
           </div>
         </div>

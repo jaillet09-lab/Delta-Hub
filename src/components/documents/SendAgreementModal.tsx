@@ -12,10 +12,24 @@ export function SendAgreementModal({ id, status, onClose }: { id: string; status
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [sent, setSent] = useState(false)
+  const [sentMode, setSentMode] = useState<'docusign' | 'email'>('email')
+  const [consent, setConsent] = useState<string | null>(null)
 
   async function send() {
-    setBusy(true); setError(null)
+    setBusy(true); setError(null); setConsent(null)
     try {
+      // Try DocuSign first; fall back to emailing the PDF if not configured.
+      const dsr = await fetch('/api/documents/docusign-send', {
+        method: 'POST', headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ id, toEmail: email.trim() }),
+      })
+      const ds = await dsr.json()
+
+      if (ds.consentRequired) { setBusy(false); setConsent(ds.consentUrl); return }
+      if (ds.success) { setBusy(false); setSentMode('docusign'); setSent(true); setTimeout(onClose, 1600); return }
+      if (ds.configured !== false && (ds.error || !dsr.ok)) { setBusy(false); setError(ds.error || 'Could not send for signature.'); return }
+
+      // configured === false → email fallback
       const r = await fetch('/api/documents/send', {
         method: 'POST', headers: { 'content-type': 'application/json' },
         body: JSON.stringify({ id, toEmail: email.trim(), message: message.trim() || undefined }),
@@ -23,7 +37,7 @@ export function SendAgreementModal({ id, status, onClose }: { id: string; status
       const res = await r.json()
       setBusy(false)
       if (!r.ok || res.error) { setError(res.error || 'Could not send. Please try again.'); return }
-      setSent(true); setTimeout(onClose, 1400)
+      setSentMode('email'); setSent(true); setTimeout(onClose, 1600)
     } catch { setBusy(false); setError('Could not send. Check your connection and try again.') }
   }
 
@@ -36,16 +50,25 @@ export function SendAgreementModal({ id, status, onClose }: { id: string; status
           <button onClick={onClose} className="p-1.5 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100"><X className="w-4 h-4" /></button>
         </div>
 
-        {sent ? (
+        {consent ? (
+          <div className="py-6 text-center">
+            <p className="text-sm font-semibold text-gray-900 mb-2">One-time DocuSign consent needed</p>
+            <p className="text-xs text-gray-500 mb-4">Click below, sign in to DocuSign and approve access. Then come back and send again — you only do this once.</p>
+            <a href={consent} target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 bg-[#1e3a5f] text-white text-sm font-semibold rounded-xl px-4 py-2.5">Grant DocuSign access →</a>
+          </div>
+        ) : sent ? (
           <div className="py-8 text-center">
             <div className="w-12 h-12 rounded-full bg-emerald-50 border border-emerald-200 flex items-center justify-center mx-auto mb-3"><Check className="w-6 h-6 text-emerald-600" /></div>
-            <p className="text-sm font-semibold text-gray-900">Agreement sent</p>
-            <p className="text-xs text-gray-400 mt-1">Marked out for signature.</p>
+            <p className="text-sm font-semibold text-gray-900">{sentMode === 'docusign' ? 'Sent via DocuSign' : 'Agreement sent'}</p>
+            <p className="text-xs text-gray-400 mt-1">{sentMode === 'docusign' ? 'The client will receive it to e-sign. It will mark Signed automatically.' : 'Marked out for signature.'}</p>
           </div>
         ) : (
+          <></>
+        )}
+        {!consent && !sent && (
           <>
-            <div className="rounded-xl bg-amber-50 border border-amber-100 px-3 py-2.5 mb-4">
-              <p className="text-xs text-amber-700">DocuSign e-signature is coming next. For now this emails the agreement PDF for the client to sign and return.</p>
+            <div className="rounded-xl bg-blue-50 border border-blue-100 px-3 py-2.5 mb-4">
+              <p className="text-xs text-blue-700">If DocuSign is connected, this sends a real e-signature request. Otherwise it emails the agreement PDF for the client to sign and return.</p>
             </div>
             <div className="space-y-3.5">
               <div>

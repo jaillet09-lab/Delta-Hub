@@ -9,6 +9,7 @@ const PUBLIC_ROUTES = [
   '/cleaner/login',
   '/client/login',
   '/api/cleaner-calendar',
+  '/api/docusign/webhook',
   '/survey',
 ]
 
