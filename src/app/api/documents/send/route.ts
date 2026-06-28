@@ -5,11 +5,15 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { renderDocumentPdf } from '@/lib/documents/pdf'
 import { ProposalDocument } from '@/components/documents/render/ProposalDocument'
 import { CapabilityDocument } from '@/components/documents/render/CapabilityDocument'
+import { AgreementDocument } from '@/components/documents/render/AgreementDocument'
 import { withProposalDefaults } from '@/lib/documents/proposal'
+import { withAgreementDefaults } from '@/lib/documents/agreement'
 import { DEFAULT_CAPABILITY } from '@/lib/documents/capability'
 
 export const runtime = 'nodejs'
 export const maxDuration = 60
+
+const safe = (s: string) => s.replace(/[^\w.\- ]/g, '').trim()
 
 export async function POST(req: Request) {
   const { id, toEmail, attachCapability, message } = await req.json()
@@ -23,42 +27,52 @@ export async function POST(req: Request) {
   const { data: doc } = await db.from('proposal_documents').select('*').eq('id', id).single()
   if (!doc) return NextResponse.json({ error: 'Document not found' }, { status: 404 })
 
-  const data = withProposalDefaults(doc.data)
+  const isAgreement = doc.kind === 'agreement'
+  const data = isAgreement ? withAgreementDefaults(doc.data) : withProposalDefaults(doc.data)
+  const clientName = (data as any).clientName
 
-  let proposalPdf: Buffer
+  let mainPdf: Buffer
   try {
-    proposalPdf = await renderDocumentPdf(React.createElement(ProposalDocument, { data }))
+    mainPdf = await renderDocumentPdf(
+      isAgreement
+        ? React.createElement(AgreementDocument, { data: data as any })
+        : React.createElement(ProposalDocument, { data: data as any })
+    )
   } catch (e: any) {
-    return NextResponse.json({ error: `Could not generate the proposal PDF: ${e?.message ?? 'unknown error'}` }, { status: 500 })
+    return NextResponse.json({ error: `Could not generate the PDF: ${e?.message ?? 'unknown error'}` }, { status: 500 })
   }
 
-  const safe = (s: string) => s.replace(/[^\w.\- ]/g, '').trim()
+  const label = isAgreement ? 'Service Agreement' : 'Proposal'
+  const ref = isAgreement ? (data as any).agreementRef : (data as any).refNumber
   const attachments: { filename: string; content: Buffer }[] = [
-    { filename: `${safe(`Proposal ${data.refNumber} ${data.clientName}`)}.pdf`, content: proposalPdf },
+    { filename: `${safe(`${label} ${ref} ${clientName}`)}.pdf`, content: mainPdf },
   ]
 
-  if (attachCapability) {
+  if (!isAgreement && attachCapability) {
     try {
       const capPdf = await renderDocumentPdf(React.createElement(CapabilityDocument, { data: DEFAULT_CAPABILITY }))
       attachments.push({ filename: 'Delta Cleaning Capability Statement.pdf', content: capPdf })
-    } catch { /* capability is optional — don't fail the send */ }
+    } catch { /* optional */ }
   }
 
-  const firstName = (data.attention || '').split(',')[0].split(' ')[0]
-  const greeting = firstName ? `Hi ${firstName},` : 'Hi,'
+  const contactName = (data as any).contactName || 'Jackson'
+  const contactEmail = (data as any).contactEmail || 'hello@deltacleaning.com.au'
+  const greeting = 'Hi,'
   const intro = (message && String(message).trim())
-    || `Thanks again for your time. Please find attached our cleaning proposal for ${data.clientName}. Everything we discussed is in there, and I'm happy to talk through any part of it.`
+    || (isAgreement
+      ? `Please find attached the service agreement for ${clientName}. Have a read through, and once you're happy, you can sign and return it. Any questions at all, just reply here.`
+      : `Thanks again for your time. Please find attached our cleaning proposal for ${clientName}. Everything we discussed is in there, and I'm happy to talk through any part of it.`)
 
   const html = `
 <div style="font-family: Arial, Helvetica, sans-serif; font-size: 15px; color: #1a1a1a; line-height: 1.65; max-width: 560px;">
   <p>${greeting}</p>
   <p>${intro}</p>
-  ${attachCapability ? '<p>I&rsquo;ve also attached our capability statement so you have a bit more background on Delta Cleaning.</p>' : ''}
-  <p>Whenever you&rsquo;re ready, just reply to this email and we&rsquo;ll lock it in.</p>
+  ${(!isAgreement && attachCapability) ? '<p>I&rsquo;ve also attached our capability statement so you have a bit more background on Delta Cleaning.</p>' : ''}
+  <p>Whenever you&rsquo;re ready, just reply to this email.</p>
   <p style="margin-top: 22px;">
-    ${data.contactName}<br/>
+    ${contactName}<br/>
     Delta Cleaning · Brisbane<br/>
-    <a href="mailto:${data.contactEmail}" style="color:#1e3a5f;">${data.contactEmail}</a>
+    <a href="mailto:${contactEmail}" style="color:#1e3a5f;">${contactEmail}</a>
   </p>
 </div>`
 
@@ -69,7 +83,7 @@ export async function POST(req: Request) {
       from: 'Delta Cleaning <hello@deltacleaning.com.au>',
       reply_to: 'hello@deltacleaning.com.au',
       to: toEmail,
-      subject: `Cleaning proposal for ${data.clientName}`,
+      subject: isAgreement ? `Service agreement for ${clientName}` : `Cleaning proposal for ${clientName}`,
       html,
       attachments,
     })
@@ -78,7 +92,8 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: e?.message ?? 'Email failed to send' }, { status: 500 })
   }
 
-  await db.from('proposal_documents').update({ status: 'sent', sent_at: new Date().toISOString() }).eq('id', id)
+  const newStatus = isAgreement ? 'out_for_signature' : 'sent'
+  await db.from('proposal_documents').update({ status: newStatus, sent_at: new Date().toISOString() }).eq('id', id)
   await db.from('proposal_document_versions').insert({ document_id: id, data, label: `Sent to ${toEmail}` })
 
   revalidatePath('/documents')

@@ -3,11 +3,11 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { ArrowLeft, Plus, Trash2, Check, Download, Loader2, Send } from 'lucide-react'
+import { ArrowLeft, Plus, Trash2, Check, Download, Loader2, Send, FilePen } from 'lucide-react'
 import { ProposalDocument } from '@/components/documents/render/ProposalDocument'
 import { SendProposalModal } from '@/components/documents/SendProposalModal'
 import { withProposalDefaults, type ProposalData, type ScopeGroup, type PricingRow } from '@/lib/documents/proposal'
-import { saveProposalDocAction } from '@/actions/proposal-docs'
+import { saveProposalDocAction, convertToAgreementAction } from '@/actions/proposal-docs'
 
 const inputCls = 'w-full bg-white border border-gray-200 text-gray-900 placeholder-gray-400 rounded-lg px-3 py-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400'
 const labelCls = 'text-[11px] font-semibold text-gray-500 uppercase tracking-wider block mb-1'
@@ -38,6 +38,7 @@ export function ProposalEditor({ id, initialData, status }: { id: string; initia
   const previewWrap = useRef<HTMLDivElement>(null)
   const [scale, setScale] = useState(0.55)
   const [showSend, setShowSend] = useState(false)
+  const [converting, setConverting] = useState(false)
 
   const set = useCallback(<K extends keyof ProposalData>(key: K, val: ProposalData[K]) => {
     setData(prev => ({ ...prev, [key]: val }))
@@ -103,8 +104,12 @@ export function ProposalEditor({ id, initialData, status }: { id: string; initia
             <Download className="w-3.5 h-3.5" /> PDF
           </a>
           <button onClick={() => setShowSend(true)}
-            className="inline-flex items-center gap-1.5 text-xs font-semibold bg-[#1e3a5f] hover:bg-[#162d4a] text-white rounded-lg px-3 py-2 transition-colors">
+            className="inline-flex items-center gap-1.5 text-xs font-semibold bg-white border border-gray-200 text-gray-700 hover:border-gray-300 rounded-lg px-3 py-2 transition-colors">
             <Send className="w-3.5 h-3.5" /> Send
+          </button>
+          <button onClick={() => { setConverting(true); convertToAgreementAction(id) }} disabled={converting}
+            className="inline-flex items-center gap-1.5 text-xs font-semibold bg-[#1e3a5f] hover:bg-[#162d4a] text-white rounded-lg px-3 py-2 transition-colors disabled:opacity-60">
+            {converting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <FilePen className="w-3.5 h-3.5" />} Convert to agreement
           </button>
         </div>
       </div>

@@ -1,11 +1,11 @@
 'use client'
 
 import { ProposalDocument } from '@/components/documents/render/ProposalDocument'
-import type { ProposalData } from '@/lib/documents/proposal'
+import { AgreementDocument } from '@/components/documents/render/AgreementDocument'
 
-// Print/PDF view: A4 page rules, a screen-only download button. Used both for
-// the staff "save as PDF" flow and (later) the headless-Chrome server render.
-export function PrintProposal({ data }: { data: ProposalData }) {
+// Print/PDF view for any document kind: A4 page rules + a screen-only download
+// button. Used for the staff "save as PDF" flow.
+export function PrintProposal({ kind = 'proposal', data }: { kind?: string; data: any }) {
   return (
     <>
       <style>{`
@@ -28,7 +28,7 @@ export function PrintProposal({ data }: { data: ProposalData }) {
           Download PDF
         </button>
       </div>
-      <ProposalDocument data={data} />
+      {kind === 'agreement' ? <AgreementDocument data={data} /> : <ProposalDocument data={data} />}
     </>
   )
 }

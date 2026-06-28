@@ -3,7 +3,8 @@
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import { createAdminClient } from '@/lib/supabase/admin'
-import { DEFAULT_PROPOSAL, type ProposalData } from '@/lib/documents/proposal'
+import { DEFAULT_PROPOSAL, withProposalDefaults, type ProposalData } from '@/lib/documents/proposal'
+import { mapProposalToAgreement } from '@/lib/documents/agreement'
 
 export type DocKind = 'proposal' | 'agreement' | 'one_off' | 'capability'
 
@@ -67,6 +68,52 @@ export async function saveProposalDocAction(id: string, data: ProposalData, snap
   }
   revalidatePath('/documents')
   revalidatePath(`/documents/${id}`)
+  return { success: true }
+}
+
+// ─── Convert accepted proposal → agreement (prefilled, editable) ─────────────
+
+export async function convertToAgreementAction(proposalId: string) {
+  const db = createAdminClient() as any
+  const { data: proposal } = await db.from('proposal_documents').select('*').eq('id', proposalId).single()
+  if (!proposal) return { error: 'Proposal not found' }
+
+  // If an agreement already exists for this proposal, just open it
+  const { data: existing } = await db.from('proposal_documents').select('id').eq('source_id', proposalId).eq('kind', 'agreement').maybeSingle()
+  if (existing?.id) {
+    redirect(`/documents/${existing.id}`)
+  }
+
+  const agreementRef = (proposal.ref_number || nextRef('DC-PROP')).replace(/^DC-PROP/, 'DCA')
+  const data = mapProposalToAgreement(withProposalDefaults(proposal.data), agreementRef)
+
+  const { data: row, error } = await db.from('proposal_documents').insert({
+    kind: 'agreement',
+    status: 'draft',
+    ref_number: agreementRef,
+    client_name: data.clientName,
+    client_id: proposal.client_id,
+    lead_id: proposal.lead_id,
+    source_id: proposalId,
+    data,
+  }).select('id').single()
+  if (error) return { error: error.message }
+
+  // Mark the proposal accepted now that it's progressing to contract
+  await db.from('proposal_documents').update({ status: 'accepted' }).eq('id', proposalId)
+
+  revalidatePath('/documents')
+  redirect(`/documents/${row.id}`)
+}
+
+export async function saveAgreementDocAction(id: string, data: any, snapshotLabel?: string) {
+  const db = createAdminClient() as any
+  const { error } = await db.from('proposal_documents').update({
+    data, client_name: data.clientName, ref_number: data.agreementRef,
+  }).eq('id', id)
+  if (error) return { error: error.message }
+  if (snapshotLabel) await db.from('proposal_document_versions').insert({ document_id: id, data, label: snapshotLabel })
+  revalidatePath('/documents'); revalidatePath(`/documents/${id}`)
   return { success: true }
 }
 
