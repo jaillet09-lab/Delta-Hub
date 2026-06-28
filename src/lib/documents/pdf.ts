@@ -31,7 +31,7 @@ export async function renderDocumentPdf(node: ReactElement): Promise<Buffer> {
   const { renderToStaticMarkup } = await import('react-dom/server')
   const html = buildHtml(renderToStaticMarkup(node))
 
-  const key = process.env.PDFSHIFT_API_KEY
+  const key = process.env.PDFSHIFT_API_KEY?.trim()
   if (!key) {
     throw new Error('PDF service is not configured yet. Add PDFSHIFT_API_KEY in the project settings.')
   }
