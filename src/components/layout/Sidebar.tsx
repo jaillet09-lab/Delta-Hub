@@ -79,10 +79,10 @@ export function Sidebar({ mobileOpen, onMobileClose }: SidebarProps) {
       {/* Logo */}
       <div className="flex items-center justify-between px-5 h-16 border-b border-white/5 flex-shrink-0">
         <Image
-          src="/logo-white.png"
+          src="/logo-mark-white.png"
           alt="Delta Cleaning"
-          width={120}
-          height={36}
+          width={38}
+          height={38}
           className="object-contain"
           priority
         />

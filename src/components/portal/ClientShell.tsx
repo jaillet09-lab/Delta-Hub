@@ -46,10 +46,10 @@ export function ClientShell({ children, clientName, userName, activePath, sites,
           {/* Logo + client + site */}
           <div className="flex items-center gap-3 lg:gap-4 min-w-0">
             <Image
-              src="/logo-white.png"
+              src="/logo-mark-white.png"
               alt="Delta Cleaning"
-              width={104}
-              height={32}
+              width={34}
+              height={34}
               className="object-contain flex-shrink-0"
               priority
             />

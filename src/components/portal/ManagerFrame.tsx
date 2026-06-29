@@ -45,7 +45,7 @@ export function ManagerFrame({ userName, children }: Props) {
           <div className="flex items-center gap-3">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
-              src="/logo-white.png"
+              src="/logo-mark-white.png"
               alt="Delta Cleaning"
               style={{ height: '32px', width: 'auto', flexShrink: 0 }}
               className="invert block"

@@ -66,7 +66,7 @@ export function ManagerShell({ children, userName, title, backHref, backLabel }:
           ) : (
             <div className="flex items-center gap-3">
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src="/logo-white.png" alt="Delta Cleaning" style={{ height: '32px', width: 'auto', flexShrink: 0 }} className="invert block" />
+              <img src="/logo-mark-white.png" alt="Delta Cleaning" style={{ height: '32px', width: 'auto', flexShrink: 0 }} className="invert block" />
               <span className="text-xs text-gray-400 border-l border-gray-200 pl-3">Manager</span>
             </div>
           )}
