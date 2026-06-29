@@ -11,6 +11,7 @@ import {
 import {
   importColdLeadsAction, previewColdLeadsCsvAction, logCallAction, deleteColdLeadAction,
   sendIntroEmailAction, sendFollowUpEmailAction, markIntroSmsSentAction,
+  previewIntroEmailAction, previewFollowUpEmailAction,
   updateColdLeadAction, type ColdLead, type CommsEntry, type ColumnMap,
 } from '@/actions/cold-leads'
 
@@ -134,6 +135,7 @@ function LeadCard({ lead, today, onChanged }: { lead: ColdLead; today: string; o
   const [flash, setFlash] = useState<string | null>(null)
   const [editNotes, setEditNotes] = useState(false)
   const [notesText, setNotesText] = useState(lead.notes ?? '')
+  const [emailPreview, setEmailPreview] = useState<{ kind: 'intro' | 'follow_up'; to: string; subject: string; body: string } | null>(null)
 
   const followUpDue = Boolean(lead.next_follow_up && lead.next_follow_up <= today && ACTIVE(lead))
   const retryDue    = Boolean(lead.next_attempt && lead.next_attempt <= today && ACTIVE(lead))
@@ -147,13 +149,22 @@ function LeadCard({ lead, today, onChanged }: { lead: ColdLead; today: string; o
     setBusy(pickDate); await logCallAction(lead.id, pickDate, date, note)
     setBusy(null); setPickDate(null); setLogging(false); setDate(''); setNote(''); onChanged()
   }
-  async function sendIntro() {
-    setBusy('email'); const res = await sendIntroEmailAction(lead.id); setBusy(null)
-    setFlash(res.error ? res.error : 'Intro email sent'); setTimeout(() => setFlash(null), 3000); onChanged()
+  // Tapping Email/Follow-up now opens a review first — nothing sends until you confirm.
+  async function openEmailPreview(kind: 'intro' | 'follow_up') {
+    setBusy('email')
+    const res = kind === 'intro' ? await previewIntroEmailAction(lead.id) : await previewFollowUpEmailAction(lead.id)
+    setBusy(null)
+    if (res.error || !res.to) { setFlash(res.error || 'Could not prepare the email'); setTimeout(() => setFlash(null), 3500); return }
+    setEmailPreview({ kind, to: res.to, subject: res.subject ?? '', body: res.body ?? '' })
   }
-  async function sendFollowUp() {
-    setBusy('email'); const res = await sendFollowUpEmailAction(lead.id); setBusy(null)
-    setFlash(res.error ? res.error : 'Follow-up sent in the same thread'); setTimeout(() => setFlash(null), 3000); onChanged()
+  async function confirmSendEmail() {
+    if (!emailPreview) return
+    const kind = emailPreview.kind
+    setBusy('email')
+    const res = kind === 'intro' ? await sendIntroEmailAction(lead.id) : await sendFollowUpEmailAction(lead.id)
+    setBusy(null); setEmailPreview(null)
+    setFlash(res.error ? res.error : (kind === 'intro' ? 'Intro email sent' : 'Follow-up sent in the same thread'))
+    setTimeout(() => setFlash(null), 3000); onChanged()
   }
   function openSms() {
     if (!lead.phone) return
@@ -278,7 +289,7 @@ function LeadCard({ lead, today, onChanged }: { lead: ColdLead; today: string; o
         {flash && <p className="text-xs font-medium text-emerald-600 mt-3">{flash}</p>}
 
         {/* Action row */}
-        {!logging && !pickDate && (
+        {!logging && !pickDate && !emailPreview && (
           <div className="flex items-center gap-2 mt-4">
             {lead.phone ? (
               <a href={`tel:${cleanPhone(lead.phone)}`} onClick={() => setLogging(true)}
@@ -300,12 +311,12 @@ function LeadCard({ lead, today, onChanged }: { lead: ColdLead; today: string; o
             )}
             {lead.has_spoken && lead.email && (
               lead.intro_email_sent_at ? (
-                <button onClick={sendFollowUp} disabled={busy === 'email'} title="Send a follow-up email in the same thread"
+                <button onClick={() => openEmailPreview('follow_up')} disabled={busy === 'email'} title="Review a follow-up email before sending"
                   className="inline-flex items-center gap-1.5 px-3 py-3 rounded-xl border text-sm font-medium transition-colors disabled:opacity-50 bg-white border-amber-200 text-amber-700 hover:border-amber-300">
                   <Mail className="w-4 h-4" /> <span className="hidden md:inline">{busy === 'email' ? '…' : 'Follow up'}</span>
                 </button>
               ) : (
-                <button onClick={sendIntro} disabled={busy === 'email'} title="Send the intro email they asked for"
+                <button onClick={() => openEmailPreview('intro')} disabled={busy === 'email'} title="Review the intro email before sending"
                   className="inline-flex items-center gap-1.5 px-3 py-3 rounded-xl border text-sm font-medium transition-colors disabled:opacity-50 bg-white border-gray-200 text-gray-600 hover:text-gray-900 hover:border-gray-300">
                   <Mail className="w-4 h-4" /> <span className="hidden md:inline">{busy === 'email' ? '…' : 'Email'}</span>
                 </button>
@@ -383,6 +394,31 @@ function LeadCard({ lead, today, onChanged }: { lead: ColdLead; today: string; o
                 {busy ? 'Saving…' : 'Save'}
               </button>
               <button onClick={() => setPickDate(null)} className="px-4 text-sm text-gray-400 hover:text-gray-600">Back</button>
+            </div>
+          </div>
+        )}
+
+        {/* Email review — nothing sends until "Send" is tapped here */}
+        {emailPreview && (
+          <div className="mt-4">
+            <div className="rounded-xl border border-amber-200 bg-amber-50/70 px-3 py-2 mb-2 flex items-center gap-1.5">
+              <Mail className="w-3.5 h-3.5 text-amber-600 flex-shrink-0" />
+              <span className="text-[11px] font-semibold text-amber-700">Review before sending — this won’t go out until you tap Send</span>
+            </div>
+            <div className="rounded-xl border border-gray-200 bg-white overflow-hidden">
+              <div className="px-3 py-2 border-b border-gray-100 text-[12px]">
+                <p className="text-gray-500"><span className="font-semibold text-gray-700">To:</span> {emailPreview.to}</p>
+                <p className="text-gray-500 mt-0.5"><span className="font-semibold text-gray-700">Subject:</span> {emailPreview.subject}</p>
+              </div>
+              <p className="px-3 py-3 text-[13px] text-gray-700 whitespace-pre-wrap leading-relaxed max-h-64 overflow-y-auto">{emailPreview.body}</p>
+            </div>
+            <div className="flex gap-2 mt-2">
+              <button onClick={confirmSendEmail} disabled={busy === 'email'}
+                className="flex-1 inline-flex items-center justify-center gap-1.5 bg-[#1e3a5f] hover:bg-[#162d4a] text-white text-sm font-semibold rounded-xl py-3 disabled:opacity-50 active:scale-[0.98] transition-all">
+                <Mail className="w-4 h-4" /> {busy === 'email' ? 'Sending…' : 'Send email'}
+              </button>
+              <button onClick={() => setEmailPreview(null)} disabled={busy === 'email'}
+                className="px-4 text-sm text-gray-400 hover:text-gray-600 disabled:opacity-50">Cancel</button>
             </div>
           </div>
         )}

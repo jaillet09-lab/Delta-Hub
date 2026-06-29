@@ -39,6 +39,7 @@ export function ProposalEditor({ id, initialData, status }: { id: string; initia
   const [scale, setScale] = useState(0.55)
   const [showSend, setShowSend] = useState(false)
   const [converting, setConverting] = useState(false)
+  const [mobileView, setMobileView] = useState<'edit' | 'preview'>('edit')
 
   const set = useCallback(<K extends keyof ProposalData>(key: K, val: ProposalData[K]) => {
     setData(prev => ({ ...prev, [key]: val }))
@@ -57,15 +58,19 @@ export function ProposalEditor({ id, initialData, status }: { id: string; initia
   }, [data])
 
   // Fit the 794px document to the preview pane width
+  const fit = useCallback(() => {
+    const w = previewWrap.current?.clientWidth ?? 600
+    if (w > 0) setScale(Math.min(0.85, (w - 32) / 794))
+  }, [])
   useEffect(() => {
-    function fit() {
-      const w = previewWrap.current?.clientWidth ?? 600
-      setScale(Math.min(0.85, (w - 32) / 794))
-    }
     fit()
     window.addEventListener('resize', fit)
     return () => window.removeEventListener('resize', fit)
-  }, [])
+  }, [fit])
+  // Re-measure when the preview pane becomes visible on mobile (it's display:none in edit mode)
+  useEffect(() => {
+    if (mobileView === 'preview') { const t = setTimeout(fit, 60); return () => clearTimeout(t) }
+  }, [mobileView, fit])
 
   // ── scope / pricing / services helpers ──
   const updateScope = (i: number, patch: Partial<ScopeGroup>) =>
@@ -115,10 +120,22 @@ export function ProposalEditor({ id, initialData, status }: { id: string; initia
       </div>
       {showSend && <SendProposalModal id={id} onClose={() => setShowSend(false)} />}
 
+      {/* Mobile Edit/Preview toggle (desktop shows both side-by-side) */}
+      <div className="lg:hidden flex border-b border-gray-200 bg-white flex-shrink-0">
+        <button onClick={() => setMobileView('edit')}
+          className={`flex-1 py-2.5 text-sm font-semibold transition-colors ${mobileView === 'edit' ? 'text-[#1e3a5f] border-b-2 border-[#1e3a5f]' : 'text-gray-400 border-b-2 border-transparent'}`}>
+          Edit
+        </button>
+        <button onClick={() => setMobileView('preview')}
+          className={`flex-1 py-2.5 text-sm font-semibold transition-colors ${mobileView === 'preview' ? 'text-[#1e3a5f] border-b-2 border-[#1e3a5f]' : 'text-gray-400 border-b-2 border-transparent'}`}>
+          Preview
+        </button>
+      </div>
+
       {/* Two-pane */}
       <div className="flex-1 flex min-h-0">
         {/* Form */}
-        <div className="w-[400px] flex-shrink-0 border-r border-gray-200 bg-white overflow-y-auto p-5">
+        <div className={`w-full lg:w-[400px] flex-shrink-0 border-r border-gray-200 bg-white overflow-y-auto p-5 ${mobileView === 'edit' ? 'block' : 'hidden'} lg:block`}>
           <Section title="Client & cover">
             <Field label="Client name" value={data.clientName} onChange={v => set('clientName', v)} />
             <Field label="Site address" value={data.siteAddress} onChange={v => set('siteAddress', v)} />
@@ -185,7 +202,7 @@ export function ProposalEditor({ id, initialData, status }: { id: string; initia
         </div>
 
         {/* Live preview */}
-        <div ref={previewWrap} className="flex-1 overflow-auto bg-[#E6E8EB] p-4">
+        <div ref={previewWrap} className={`flex-1 overflow-auto bg-[#E6E8EB] p-4 ${mobileView === 'preview' ? 'block' : 'hidden'} lg:block`}>
           <div style={{ transform: `scale(${scale})`, transformOrigin: 'top center', width: 794, margin: '0 auto' }}>
             <ProposalDocument data={data} />
           </div>

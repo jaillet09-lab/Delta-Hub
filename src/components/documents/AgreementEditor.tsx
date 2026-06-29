@@ -26,6 +26,7 @@ export function AgreementEditor({ id, initialData, status }: { id: string; initi
   const previewWrap = useRef<HTMLDivElement>(null)
   const [scale, setScale] = useState(0.55)
   const [showSend, setShowSend] = useState(false)
+  const [mobileView, setMobileView] = useState<'edit' | 'preview'>('edit')
 
   const set = useCallback(<K extends keyof AgreementData>(key: K, val: AgreementData[K]) => setData(prev => ({ ...prev, [key]: val })), [])
 
@@ -37,10 +38,16 @@ export function AgreementEditor({ id, initialData, status }: { id: string; initi
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [data])
 
-  useEffect(() => {
-    function fit() { const w = previewWrap.current?.clientWidth ?? 600; setScale(Math.min(0.85, (w - 32) / 794)) }
-    fit(); window.addEventListener('resize', fit); return () => window.removeEventListener('resize', fit)
+  const fit = useCallback(() => {
+    const w = previewWrap.current?.clientWidth ?? 600
+    if (w > 0) setScale(Math.min(0.85, (w - 32) / 794))
   }, [])
+  useEffect(() => {
+    fit(); window.addEventListener('resize', fit); return () => window.removeEventListener('resize', fit)
+  }, [fit])
+  useEffect(() => {
+    if (mobileView === 'preview') { const t = setTimeout(fit, 60); return () => clearTimeout(t) }
+  }, [mobileView, fit])
 
   const updateScope = (i: number, patch: Partial<ScopeGroup>) => set('scopeGroups', data.scopeGroups.map((g, idx) => idx === i ? { ...g, ...patch } : g))
   const updateScopeItem = (gi: number, ii: number, val: string) => updateScope(gi, { items: data.scopeGroups[gi].items.map((it, idx) => idx === ii ? val : it) })
@@ -73,8 +80,20 @@ export function AgreementEditor({ id, initialData, status }: { id: string; initi
       </div>
       {showSend && <SendAgreementModal id={id} status={status} onClose={() => setShowSend(false)} />}
 
+      {/* Mobile Edit/Preview toggle (desktop shows both side-by-side) */}
+      <div className="lg:hidden flex border-b border-gray-200 bg-white flex-shrink-0">
+        <button onClick={() => setMobileView('edit')}
+          className={`flex-1 py-2.5 text-sm font-semibold transition-colors ${mobileView === 'edit' ? 'text-[#1e3a5f] border-b-2 border-[#1e3a5f]' : 'text-gray-400 border-b-2 border-transparent'}`}>
+          Edit
+        </button>
+        <button onClick={() => setMobileView('preview')}
+          className={`flex-1 py-2.5 text-sm font-semibold transition-colors ${mobileView === 'preview' ? 'text-[#1e3a5f] border-b-2 border-[#1e3a5f]' : 'text-gray-400 border-b-2 border-transparent'}`}>
+          Preview
+        </button>
+      </div>
+
       <div className="flex-1 flex min-h-0">
-        <div className="w-[400px] flex-shrink-0 border-r border-gray-200 bg-white overflow-y-auto p-5">
+        <div className={`w-full lg:w-[400px] flex-shrink-0 border-r border-gray-200 bg-white overflow-y-auto p-5 ${mobileView === 'edit' ? 'block' : 'hidden'} lg:block`}>
           <Section title="Parties">
             <Field label="Provider legal name" value={data.providerName} onChange={v => set('providerName', v)} />
             <Field label="Provider ABN" value={data.providerABN} onChange={v => set('providerABN', v)} />
@@ -119,7 +138,7 @@ export function AgreementEditor({ id, initialData, status }: { id: string; initi
           </Section>
         </div>
 
-        <div ref={previewWrap} className="flex-1 overflow-auto bg-[#E6E8EB] p-4">
+        <div ref={previewWrap} className={`flex-1 overflow-auto bg-[#E6E8EB] p-4 ${mobileView === 'preview' ? 'block' : 'hidden'} lg:block`}>
           <div style={{ transform: `scale(${scale})`, transformOrigin: 'top center', width: 794, margin: '0 auto' }}>
             <AgreementDocument data={data} />
           </div>

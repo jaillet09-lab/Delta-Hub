@@ -453,6 +453,47 @@ export async function sendFollowUpEmailAction(id: string) {
   return { success: true }
 }
 
+// ─── Email previews (no send) — power the "review before sending" step ────────
+// Mirror the exact subject + body the send actions produce, so what you see is
+// what goes out. Returns the plain-text body for display.
+
+export async function previewIntroEmailAction(id: string): Promise<{ to?: string; subject?: string; body?: string; error?: string }> {
+  const db = createAdminClient() as any
+  const { data: lead } = await db.from('cold_leads').select('*').eq('id', id).single()
+  if (!lead) return { error: 'Lead not found' }
+  if (!lead.email) return { error: 'This lead has no email address.' }
+  if (!lead.has_spoken) return { error: 'Only send this once you’ve spoken with them on the phone.' }
+
+  const firstName = (lead.contact_name || '').split(' ')[0]
+  const greeting = firstName ? `Hi ${firstName},` : 'Hi,'
+  const locality = localityPhrase(lead.suburb)
+  const subject = `Cleaning quote for ${lead.business_name}`
+  const body =
+    `${greeting}\n\n` +
+    `Great to chat just now and thanks for taking my call. As promised, here is a quick note from Delta Cleaning.\n\n` +
+    `We look after commercial cleaning for businesses${locality}: offices, clinics, retail and shared spaces.\n\n` +
+    `Whenever suits, I would be glad to come past, walk through the site with you and put a fixed monthly price on it. The visit is free, takes about fifteen minutes, and there is no obligation.\n\n` +
+    `Just reply here and we will lock in a time that works for you.\n\nThanks,\nJackson\nDelta Cleaning`
+  return { to: lead.email, subject, body }
+}
+
+export async function previewFollowUpEmailAction(id: string): Promise<{ to?: string; subject?: string; body?: string; error?: string }> {
+  const db = createAdminClient() as any
+  const { data: lead } = await db.from('cold_leads').select('*').eq('id', id).single()
+  if (!lead) return { error: 'Lead not found' }
+  if (!lead.email) return { error: 'This lead has no email address.' }
+  if (!lead.intro_email_message_id || !lead.intro_email_subject) return { error: 'Send the first email before following up.' }
+
+  const firstName = (lead.contact_name || '').split(' ')[0]
+  const greeting = firstName ? `Hi ${firstName},` : 'Hi,'
+  const subject = lead.intro_email_subject.startsWith('Re: ') ? lead.intro_email_subject : `Re: ${lead.intro_email_subject}`
+  const body =
+    `${greeting}\n\n` +
+    `Just following up on my note below. I know things get busy.\n\n` +
+    `The offer still stands: a free site visit of about fifteen minutes and a fixed monthly price, with no obligation. If you would like me to come past, just reply with a day that suits and I will make it work.\n\nThanks,\nJackson\nDelta Cleaning`
+  return { to: lead.email, subject, body }
+}
+
 export async function markIntroSmsSentAction(id: string, body?: string) {
   const db = createAdminClient() as any
   const { data: lead } = await db.from('cold_leads').select('comms').eq('id', id).single()
