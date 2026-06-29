@@ -4,14 +4,9 @@ import { useState } from 'react'
 import Image from 'next/image'
 import { createClient } from '@/lib/supabase/client'
 
-type Mode = 'password' | 'magic'
-
 export default function LoginPage() {
-  const [mode, setMode] = useState<Mode>('password')
   const [login, setLogin] = useState('')
   const [password, setPassword] = useState('')
-  const [magicEmail, setMagicEmail] = useState('')
-  const [sent, setSent] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
 
@@ -49,6 +44,10 @@ export default function LoginPage() {
 
     // Non-admin roles read a different cookie namespace. Sign in again with the
     // correct portal client so the session lands in that namespace's cookie.
+    // We do NOT sign out the discovery session: the two clients can share auth
+    // storage, so signing one out wipes the freshly-created portal session and
+    // bounces the user back to login. The leftover admin-namespace session is
+    // harmless — middleware role-gates it, and a later admin login overwrites it.
     if (role !== 'admin') {
       const portalClient = createClient(role)
       const { error: portalError } = await portalClient.auth.signInWithPassword({ email, password })
@@ -63,128 +62,74 @@ export default function LoginPage() {
     window.location.href = roleHome[role] ?? '/dashboard'
   }
 
-  // Clients: request a one-time sign-in link by email (passwordless).
-  async function handleMagicLink(e: React.FormEvent) {
-    e.preventDefault()
-    setError(null)
-    setLoading(true)
-
-    const email = magicEmail.trim()
-    if (!email.includes('@')) {
-      setError('Please enter the email address your account uses.')
-      setLoading(false)
-      return
-    }
-
-    // Use the client namespace so the PKCE verifier + resulting session live where
-    // the client portal reads them. shouldCreateUser:false → only existing clients.
-    const supabase = createClient('client')
-    const { error: otpError } = await supabase.auth.signInWithOtp({
-      email,
-      options: {
-        emailRedirectTo: `${window.location.origin}/auth/callback`,
-        shouldCreateUser: false,
-      },
-    })
-
-    setLoading(false)
-    // Always show success to avoid revealing which emails have accounts.
-    if (otpError && !/not found|no user/i.test(otpError.message)) {
-      setError('We couldn’t send the link just now. Please try again in a moment.')
-      return
-    }
-    setSent(true)
-  }
-
   return (
     <div className="min-h-[100dvh] flex items-center justify-center bg-white p-6">
       <div className="w-full max-w-sm">
         <div className="flex justify-center mb-3">
-          <Image src="/logo-white.png" alt="Delta Cleaning" width={150} height={46} className="object-contain invert" priority />
+          <Image
+            src="/logo-white.png"
+            alt="Delta Cleaning"
+            width={150}
+            height={46}
+            className="object-contain invert"
+            priority
+          />
         </div>
         <p className="text-center text-[11px] font-semibold uppercase tracking-[0.22em] text-gray-400 mb-10">
           Client &amp; Team Portal
         </p>
 
-        {error && (
-          <div className="bg-red-50 border border-red-100 text-red-600 text-sm rounded-xl px-4 py-3 mb-5">
-            {error}
-          </div>
-        )}
-
-        {sent ? (
-          <div className="text-center">
-            <div className="bg-green-50 border border-green-100 text-green-700 text-sm rounded-xl px-4 py-4 mb-6">
-              Check your email — we’ve sent a sign-in link to <span className="font-semibold">{magicEmail}</span>.
-              Open it on this device to sign in.
+        <form onSubmit={handleSubmit} className="space-y-5">
+          {error && (
+            <div className="bg-red-50 border border-red-100 text-red-600 text-sm rounded-xl px-4 py-3">
+              {error}
             </div>
-            <button
-              onClick={() => { setSent(false); setMode('password') }}
-              className="text-xs font-semibold text-[#1e3a5f] hover:underline"
-            >
-              Back to sign in
-            </button>
-          </div>
-        ) : mode === 'password' ? (
-          <>
-            <form onSubmit={handleSubmit} className="space-y-5">
-              <div>
-                <label htmlFor="login" className="block text-xs font-semibold text-gray-600 mb-1.5">Username or Email</label>
-                <input
-                  id="login" type="text" autoComplete="username" required
-                  value={login} onChange={(e) => setLogin(e.target.value.trim())}
-                  className="w-full px-4 py-3.5 bg-white border border-gray-200 rounded-xl text-[16px] text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#1e3a5f]/25 focus:border-[#1e3a5f] transition"
-                  placeholder="john.smith or you@deltacleaning.com.au"
-                />
-              </div>
-              <div>
-                <label htmlFor="password" className="block text-xs font-semibold text-gray-600 mb-1.5">Password</label>
-                <input
-                  id="password" type="password" autoComplete="current-password" required
-                  value={password} onChange={(e) => setPassword(e.target.value)}
-                  className="w-full px-4 py-3.5 bg-white border border-gray-200 rounded-xl text-[16px] text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#1e3a5f]/25 focus:border-[#1e3a5f] transition"
-                  placeholder="••••••••"
-                />
-              </div>
-              <button type="submit" disabled={loading}
-                className="w-full py-3.5 bg-[#1e3a5f] hover:bg-[#162d4a] text-white text-sm font-semibold rounded-xl shadow-[0_4px_14px_rgba(30,58,95,0.25)] transition-all active:scale-[0.99] disabled:opacity-50">
-                {loading ? 'Signing in…' : 'Sign in'}
-              </button>
-            </form>
-            <button
-              onClick={() => { setError(null); setMode('magic') }}
-              className="block mx-auto mt-6 text-xs font-semibold text-[#1e3a5f] hover:underline"
-            >
-              Client? Email me a sign-in link instead
-            </button>
-          </>
-        ) : (
-          <>
-            <form onSubmit={handleMagicLink} className="space-y-5">
-              <div>
-                <label htmlFor="magicEmail" className="block text-xs font-semibold text-gray-600 mb-1.5">Your email address</label>
-                <input
-                  id="magicEmail" type="email" autoComplete="email" required
-                  value={magicEmail} onChange={(e) => setMagicEmail(e.target.value)}
-                  className="w-full px-4 py-3.5 bg-white border border-gray-200 rounded-xl text-[16px] text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#1e3a5f]/25 focus:border-[#1e3a5f] transition"
-                  placeholder="you@yourcompany.com.au"
-                />
-              </div>
-              <button type="submit" disabled={loading}
-                className="w-full py-3.5 bg-[#1e3a5f] hover:bg-[#162d4a] text-white text-sm font-semibold rounded-xl shadow-[0_4px_14px_rgba(30,58,95,0.25)] transition-all active:scale-[0.99] disabled:opacity-50">
-                {loading ? 'Sending…' : 'Email me a sign-in link'}
-              </button>
-            </form>
-            <button
-              onClick={() => { setError(null); setMode('password') }}
-              className="block mx-auto mt-6 text-xs font-semibold text-[#1e3a5f] hover:underline"
-            >
-              Use a password instead
-            </button>
-          </>
-        )}
+          )}
 
-        <p className="text-center text-xs text-gray-400 mt-8">Delta Cleaning · Brisbane, QLD</p>
+          <div>
+            <label htmlFor="login" className="block text-xs font-semibold text-gray-600 mb-1.5">
+              Username or Email
+            </label>
+            <input
+              id="login"
+              type="text"
+              autoComplete="username"
+              required
+              value={login}
+              onChange={(e) => setLogin(e.target.value.trim())}
+              className="w-full px-4 py-3.5 bg-white border border-gray-200 rounded-xl text-[16px] text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#1e3a5f]/25 focus:border-[#1e3a5f] transition"
+              placeholder="john.smith or you@deltacleaning.com.au"
+            />
+          </div>
+
+          <div>
+            <label htmlFor="password" className="block text-xs font-semibold text-gray-600 mb-1.5">
+              Password
+            </label>
+            <input
+              id="password"
+              type="password"
+              autoComplete="current-password"
+              required
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              className="w-full px-4 py-3.5 bg-white border border-gray-200 rounded-xl text-[16px] text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#1e3a5f]/25 focus:border-[#1e3a5f] transition"
+              placeholder="••••••••"
+            />
+          </div>
+
+          <button
+            type="submit"
+            disabled={loading}
+            className="w-full py-3.5 bg-[#1e3a5f] hover:bg-[#162d4a] text-white text-sm font-semibold rounded-xl shadow-[0_4px_14px_rgba(30,58,95,0.25)] transition-all active:scale-[0.99] disabled:opacity-50"
+          >
+            {loading ? 'Signing in…' : 'Sign in'}
+          </button>
+        </form>
+
+        <p className="text-center text-xs text-gray-400 mt-8">
+          Delta Cleaning · Brisbane, QLD
+        </p>
       </div>
     </div>
   )
