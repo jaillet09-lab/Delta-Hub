@@ -4,6 +4,7 @@ export const revalidate = 0
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
 import { PortalShell } from '@/components/portal/PortalShell'
 import { AcceptClientButton } from '@/components/portal/cleaner/AcceptClientButton'
 import { buildSchedule, actionableDates, brisbaneTodayStr } from '@/lib/schedule'
@@ -74,6 +75,15 @@ export default async function CleanerDashboard() {
   const pending  = allClients.filter((c) => !c.assignment_accepted)
   const accepted = allClients.filter((c) => c.assignment_accepted)
   const inProgressJob = (activeJobs ?? [])[0] ?? null
+
+  // Sites this cleaner is assigned to individually (multi-site clients). The parent client may
+  // not be assigned to them at the client level, so fetch via admin scoped to this cleaner.
+  const adminDb = createAdminClient() as any
+  const { data: mySitesRaw } = await adminDb
+    .from('client_sites')
+    .select('id, site_name, suburb, client_id, clients(business_name, active)')
+    .eq('assigned_cleaner_id', profile.id)
+  const assignedSites: any[] = (mySitesRaw ?? []).filter((s: any) => s.clients?.active !== false)
 
   // Split past not-started jobs: a Saturday job carried into Sunday is still due
   // (actionable), everything older is a genuine missed clean.
@@ -251,6 +261,28 @@ export default async function CleanerDashboard() {
                   </Link>
                 ))}
               </div>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {/* ── MY SITES (individually-assigned sites of multi-site clients) ── */}
+      {assignedSites.length > 0 && (
+        <section className="mb-6">
+          <p className="text-xs font-semibold text-gray-400 uppercase tracking-widest mb-3">My Sites</p>
+          <div className="space-y-2">
+            {assignedSites.map((site: any) => (
+              <Link key={site.id} href={`/cleaner/clients/${site.client_id}?site=${site.id}`} className="block">
+                <div className="bg-white rounded-2xl px-5 py-4 flex items-center justify-between gap-3 active:bg-gray-50 transition-colors">
+                  <div className="min-w-0">
+                    <p className="text-sm font-semibold text-black truncate">{site.site_name}</p>
+                    <p className="text-xs text-gray-400 mt-0.5 truncate">
+                      {site.clients?.business_name}{site.suburb ? ` · ${site.suburb}` : ''}
+                    </p>
+                  </div>
+                  <ChevronRight className="w-4 h-4 text-gray-300 flex-shrink-0" />
+                </div>
+              </Link>
             ))}
           </div>
         </section>

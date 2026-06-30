@@ -3,6 +3,7 @@ export const revalidate = 0
 
 import { notFound, redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
 import { PortalShell } from '@/components/portal/PortalShell'
 import { StartCleanButton } from '@/components/portal/cleaner/StartCleanButton'
 import { SubmitJobForm } from '@/components/portal/cleaner/SubmitJobForm'
@@ -43,15 +44,20 @@ export default async function CleanerClientPage({ params }: { params: { id: stri
     .from('profiles').select('*').eq('user_id', user.id).single()
   if (!profile) redirect('/login')
 
-  const { data: client } = await (supabase as any)
-    .from('clients')
-    .select('*')
-    .eq('id', params.id)
-    .eq('assigned_cleaner_id', profile.id)
-    .eq('assignment_accepted', true)
-    .single()
-
+  // Load client + sites via admin so a cleaner assigned only to a SITE (not the whole
+  // client) can still reach this page. We authorize manually below.
+  const admin = createAdminClient() as any
+  const { data: client } = await admin.from('clients').select('*').eq('id', params.id).single()
   if (!client) notFound()
+
+  const { data: sitesRaw } = await admin
+    .from('client_sites').select('*').eq('client_id', params.id).order('sort_order', { ascending: true })
+  const sites = (sitesRaw ?? []) as any[]
+  const mySites = sites.filter((s) => s.assigned_cleaner_id === profile.id)
+  const clientAssigned = client.assigned_cleaner_id === profile.id && client.assignment_accepted
+
+  // Must be assigned to the client, or to at least one of its sites.
+  if (!clientAssigned && mySites.length === 0) notFound()
 
   // Check for an actionable job — today's, or a Saturday job carried into Sunday
   const today = brisbaneTodayStr()
@@ -89,22 +95,40 @@ export default async function CleanerClientPage({ params }: { params: { id: stri
   const isInProgress = todayJob?.status === 'in_progress' || todayJob?.status === 'flagged'
   const isCompleted  = todayJob?.status === 'completed'
 
-  // ── Scope-of-works checklist ──
-  const scope: ScopeTask[] = Array.isArray(client.scope) ? client.scope : []
-  const cleanDayKeys: string[] = (client.clean_days?.length
-    ? client.clean_days
-    : serviceDays.map((d: string) => d.slice(0, 3).replace(/^./, (c: string) => c.toUpperCase())))
-  const { data: comps } = await (supabase as any)
+  // ── Scope-of-works checklist(s) ──
+  // Today's completions for the whole client (task ids are unique per site, so one set
+  // serves every site checklist). Read via admin so site-only cleaners always see ticks.
+  const { data: comps } = await admin
     .from('schedule_completions')
     .select('task_id')
     .eq('client_id', params.id)
     .eq('clean_date', today)
     .eq('done', true)
   const completedIds: string[] = (comps ?? []).map((r: any) => r.task_id)
-  const siteShort = [client.suburb, FREQ_LABELS[client.frequency] ?? client.frequency].filter(Boolean).join(' · ')
   const dateLabel = new Date(today + 'T00:00:00').toLocaleDateString('en-AU', {
     weekday: 'short', day: 'numeric', month: 'short', timeZone: 'Australia/Brisbane',
   })
+  const dayKey = (freq: string | null) => FREQ_LABELS[freq ?? ''] ?? freq ?? ''
+  const fallbackDays = (svc: string[]) => svc.map((d) => d.slice(0, 3).replace(/^./, (c) => c.toUpperCase()))
+
+  // Which checklists to show: per-site for multi-site clients (only the cleaner's sites,
+  // or all sites when assigned at the client level), else a single client-level checklist.
+  const siteChecklists =
+    sites.length > 0
+      ? (mySites.length ? mySites : (clientAssigned ? sites : []))
+          .filter((s) => Array.isArray(s.scope) && s.scope.length > 0)
+          .map((s) => ({
+            key: s.id,
+            name: s.site_name as string,
+            short: [s.suburb, dayKey(s.frequency)].filter(Boolean).join(' · '),
+            scope: s.scope as ScopeTask[],
+            cleanDays: (s.clean_days?.length ? s.clean_days : fallbackDays(s.service_days ?? [])) as string[],
+          }))
+      : []
+
+  const clientScope: ScopeTask[] = Array.isArray(client.scope) ? client.scope : []
+  const clientCleanDays: string[] = client.clean_days?.length ? client.clean_days : fallbackDays(serviceDays)
+  const clientShort = [client.suburb, dayKey(client.frequency)].filter(Boolean).join(' · ')
 
   return (
     <PortalShell
@@ -117,21 +141,37 @@ export default async function CleanerClientPage({ params }: { params: { id: stri
         <h1 className="text-2xl font-bold text-black tracking-tight">{client.business_name}</h1>
       </div>
 
-      {/* Today's schedule checklist */}
-      {scope.length > 0 && (
+      {/* Today's schedule checklist(s) */}
+      {siteChecklists.length > 0 ? (
+        <div className="space-y-4 mb-6">
+          {siteChecklists.map((s) => (
+            <CleanerSchedule
+              key={s.key}
+              clientId={params.id}
+              clientName={s.name}
+              siteShort={s.short}
+              scope={s.scope}
+              cleanDays={s.cleanDays}
+              todayISO={today}
+              dateLabel={dateLabel}
+              initialCompleted={completedIds}
+            />
+          ))}
+        </div>
+      ) : clientScope.length > 0 ? (
         <div className="mb-6">
           <CleanerSchedule
             clientId={params.id}
             clientName={client.business_name}
-            siteShort={siteShort}
-            scope={scope}
-            cleanDays={cleanDayKeys}
+            siteShort={clientShort}
+            scope={clientScope}
+            cleanDays={clientCleanDays}
             todayISO={today}
             dateLabel={dateLabel}
             initialCompleted={completedIds}
           />
         </div>
-      )}
+      ) : null}
 
       {/* Client details */}
       <div className="space-y-3 mb-6">

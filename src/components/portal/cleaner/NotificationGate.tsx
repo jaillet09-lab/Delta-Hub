@@ -132,7 +132,7 @@ export function NotificationGate({ children }: { children: React.ReactNode }) {
       <p className="text-sm text-gray-500 leading-relaxed mb-8 max-w-xs">
         {permission === 'denied'
           ? 'Notifications are blocked on this device. Go to Settings and enable them for Delta, then tap the button below.'
-          : 'Delta needs to send you notifications for new job assignments and updates from your manager.'
+          : 'Delta needs to send you notifications — new job assignments, reminders to start and finish your cleans, and updates from your manager.'
         }
       </p>
 

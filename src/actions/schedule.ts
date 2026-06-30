@@ -46,12 +46,25 @@ export async function toggleTaskAction(clientId: string, taskId: string, dateISO
   return { success: true }
 }
 
-// Staff: save the structured scope + clean days for a client.
-export async function saveScopeAction(clientId: string, scope: ScopeTask[], cleanDays: string[]) {
+// Staff: save the structured scope + clean days for a client, or a specific site.
+export async function saveScopeAction(clientId: string, scope: ScopeTask[], cleanDays: string[], siteId?: string) {
   const profile = await currentProfile()
   if (!profile || !['admin', 'manager'].includes(profile.role)) return { error: 'Not allowed.' }
   const db = createAdminClient() as any
-  const { error } = await db.from('clients').update({ scope, clean_days: cleanDays }).eq('id', clientId)
+  const { error } = siteId
+    ? await db.from('client_sites').update({ scope, clean_days: cleanDays }).eq('id', siteId)
+    : await db.from('clients').update({ scope, clean_days: cleanDays }).eq('id', clientId)
+  if (error) return { error: error.message }
+  revalidatePath(`/clients/${clientId}`)
+  return { success: true }
+}
+
+// Staff: assign (or clear) the cleaner for a single site of a multi-site client.
+export async function assignSiteCleanerAction(clientId: string, siteId: string, cleanerId: string | null) {
+  const profile = await currentProfile()
+  if (!profile || !['admin', 'manager'].includes(profile.role)) return { error: 'Not allowed.' }
+  const db = createAdminClient() as any
+  const { error } = await db.from('client_sites').update({ assigned_cleaner_id: cleanerId }).eq('id', siteId)
   if (error) return { error: error.message }
   revalidatePath(`/clients/${clientId}`)
   return { success: true }

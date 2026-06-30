@@ -68,7 +68,7 @@ const COMM_LABEL: Record<CommsEntry['kind'], string> = {
   email: 'Intro email', follow_up_email: 'Follow-up email', sms: 'Text',
 }
 
-type Tab = 'to_call' | 'contacted' | 'booked' | 'all'
+type Tab = 'to_call' | 'follow_ups' | 'contacted' | 'booked' | 'all'
 
 const ACTIVE = (l: ColdLead) => l.status !== 'not_interested' && l.status !== 'converted'
 function isDue(l: ColdLead, today: string): boolean {
@@ -617,16 +617,27 @@ export function CallDeck({ initialLeads }: { initialLeads: ColdLead[] }) {
   const contactedCnt = leads.filter(l => l.call_count > 0).length
 
   const counts = {
-    to_call:   remaining,
-    contacted: leads.filter(l => l.status === 'called' || l.status === 'follow_up').length,
-    booked:    leads.filter(l => l.status === 'walkthrough' || l.status === 'converted').length,
-    all:       leads.length,
+    to_call:    remaining,
+    follow_ups: leads.filter(l => l.status === 'follow_up' || l.next_follow_up).length,
+    contacted:  leads.filter(l => l.status === 'called' || l.status === 'follow_up').length,
+    booked:     leads.filter(l => l.status === 'walkthrough' || l.status === 'converted').length,
+    all:        leads.length,
   }
 
   const visible = useMemo(() => {
     let list: ColdLead[]
     if (tab === 'to_call') {
       list = leads.filter(l => l.status === 'new').sort((a, b) => a.business_name.localeCompare(b.business_name))
+    } else if (tab === 'follow_ups') {
+      // Every lead awaiting a follow-up — overdue/due first, then by soonest follow-up date
+      list = leads.filter(l => l.status === 'follow_up' || l.next_follow_up).sort((a, b) => {
+        const aDue = isDue(a, today) ? 0 : 1
+        const bDue = isDue(b, today) ? 0 : 1
+        if (aDue !== bDue) return aDue - bDue
+        const aNext = a.next_follow_up || a.next_attempt || '9999'
+        const bNext = b.next_follow_up || b.next_attempt || '9999'
+        return aNext < bNext ? -1 : aNext > bNext ? 1 : 0
+      })
     } else if (tab === 'contacted') {
       // Called or in follow-up — due items first, then soonest scheduled, then oldest contact
       list = leads.filter(l => l.status === 'called' || l.status === 'follow_up').sort((a, b) => {
@@ -656,7 +667,7 @@ export function CallDeck({ initialLeads }: { initialLeads: ColdLead[] }) {
   }, [leads, tab, search, today])
 
   const TABS: [Tab, string][] = [
-    ['to_call', 'To Call'], ['contacted', 'Contacted'], ['booked', 'Booked'], ['all', 'All'],
+    ['to_call', 'To Call'], ['follow_ups', 'Follow-ups'], ['contacted', 'Contacted'], ['booked', 'Booked'], ['all', 'All'],
   ]
 
   return (

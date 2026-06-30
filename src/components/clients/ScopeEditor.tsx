@@ -14,11 +14,13 @@ function newId() {
 }
 
 export function ScopeEditor({
-  clientId, initialScope, initialCleanDays,
+  clientId, initialScope, initialCleanDays, siteId, title,
 }: {
   clientId: string
   initialScope: ScopeTask[]
   initialCleanDays: string[]
+  siteId?: string
+  title?: string
 }) {
   const [tasks, setTasks] = useState<ScopeTask[]>(initialScope)
   const [cleanDays, setCleanDays] = useState<string[]>(initialCleanDays)
@@ -51,7 +53,7 @@ export function ScopeEditor({
     const clean = tasks.filter(t => t.task.trim())
       .map(t => ({ ...t, area: t.area.trim() || 'General', task: t.task.trim(), day: t.frequency === 'visit' ? undefined : t.day }))
     const orderedDays = WEEKDAY_KEYS.filter(d => cleanDays.includes(d))
-    const r = await saveScopeAction(clientId, clean, orderedDays)
+    const r = await saveScopeAction(clientId, clean, orderedDays, siteId)
     setSaving(false)
     if (r?.error) { setError(r.error); return }
     setTasks(clean); setSaved(true)
@@ -62,7 +64,7 @@ export function ScopeEditor({
       <div className="flex items-center justify-between gap-2 mb-4">
         <h3 className="text-sm font-semibold text-gray-900 flex items-center gap-2">
           <ClipboardList className="w-4 h-4 text-gray-400" />
-          Cleaning schedule &amp; scope
+          {title ?? 'Cleaning schedule & scope'}
         </h3>
         <button onClick={save} disabled={saving}
           className="inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg bg-[#1e3a5f] text-white hover:bg-[#16304f] disabled:opacity-50 transition-colors">
