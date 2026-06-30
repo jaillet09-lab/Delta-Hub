@@ -32,8 +32,15 @@ export interface ColdLead {
   follow_up_email_sent_at: string | null
   intro_sms_sent_at: string | null
   comms: CommsEntry[]
+  call_log: CallLogEntry[]
   notes: string | null
   created_at: string
+}
+
+export interface CallLogEntry {
+  at: string                 // ISO timestamp
+  outcome: string            // no_answer | spoke | follow_up | walkthrough | not_interested
+  note: string | null        // optional plain-English summary of the call
 }
 
 // How many days to wait before the next attempt after a no-answer — widens as
@@ -245,7 +252,16 @@ export async function logCallAction(
   }
 
   if (followUpDate) update.next_follow_up = followUpDate
-  if (note !== undefined) update.follow_up_note = note || null
+  // follow_up_note drives the "follow-up due" banner — only set it for the dated outcomes.
+  if ((outcome === 'follow_up' || outcome === 'walkthrough') && note !== undefined) {
+    update.follow_up_note = note || null
+  }
+
+  // Append a timestamped summary entry to the call log (every outcome).
+  update.call_log = [
+    ...(Array.isArray(lead.call_log) ? lead.call_log : []),
+    { at: new Date().toISOString(), outcome, note: note?.trim() || null },
+  ]
 
   // Booking a walk-through means this is a real opportunity — push it into the
   // sales pipeline so cold calls and Leads stay in sync. Idempotent: only once.

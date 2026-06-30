@@ -6,13 +6,13 @@ import {
   Phone, PhoneCall, PhoneMissed, MessageSquare, Mail, MailCheck,
   CalendarClock, Footprints, Trash2, Plus, Search, X, Check,
   ThumbsDown, Flame, Upload, MapPin, Building2, User, Clock,
-  StickyNote, ChevronDown, RotateCcw, TrendingUp,
+  StickyNote, ChevronDown, RotateCcw, TrendingUp, Sparkles,
 } from 'lucide-react'
 import {
   importColdLeadsAction, previewColdLeadsCsvAction, logCallAction, deleteColdLeadAction,
   sendIntroEmailAction, sendFollowUpEmailAction, markIntroSmsSentAction,
   previewIntroEmailAction, previewFollowUpEmailAction,
-  updateColdLeadAction, type ColdLead, type CommsEntry, type ColumnMap,
+  updateColdLeadAction, type ColdLead, type CommsEntry, type CallLogEntry, type ColumnMap,
 } from '@/actions/cold-leads'
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -123,6 +123,84 @@ function CommsHistory({ comms }: { comms: CommsEntry[] }) {
   )
 }
 
+// Deterministic pre-call talking points — tuned a little by industry, no AI needed.
+function talkingPoints(lead: ColdLead): string[] {
+  const pts: string[] = []
+  const ind = (lead.industry || '').toLowerCase()
+  if (/dental|medical|doctor|clinic|health|vet|physio|pharм|pharmacy/.test(ind))
+    pts.push('Lead with hygiene + infection control — clinics want spotless, compliant cleaning.')
+  else if (/real ?estate|property|realty/.test(ind))
+    pts.push('Angle: a sharp office for walk-ins, plus presentation cleans for inspections.')
+  else if (/gym|fitness|studio/.test(ind))
+    pts.push('Angle: high-traffic sanitising and change-room hygiene.')
+  else if (/cafe|restaurant|food|hospitality|bakery/.test(ind))
+    pts.push('Angle: kitchen + front-of-house hygiene, council-ready.')
+  else if (/office|account|legal|law|finance|corporate|insurance/.test(ind))
+    pts.push('Angle: reliable after-hours office cleaning with no disruption.')
+  else if (/warehouse|industrial|factory|workshop/.test(ind))
+    pts.push('Angle: floors, amenities and bins kept on top of — safe and tidy.')
+  else
+    pts.push('Angle: reliable, fixed-price commercial cleaning with no lock-in.')
+
+  pts.push('Offer a free 15-minute site visit and a fixed monthly price.')
+  if (lead.has_spoken) pts.push('You’ve already spoken — aim to book the walk-through today.')
+  else if (lead.call_count > 0) pts.push(`Attempt #${lead.call_count + 1} — reference your last note if they remember you.`)
+  if (lead.follow_up_note) pts.push(`Last note: “${lead.follow_up_note}”.`)
+  return pts
+}
+
+function CallPrep({ lead }: { lead: ColdLead }) {
+  const [open, setOpen] = useState(false)
+  const points = talkingPoints(lead)
+  return (
+    <div className="mt-3 rounded-xl border border-[#1e3a5f]/15 bg-[#1e3a5f]/[0.03] overflow-hidden">
+      <button onClick={() => setOpen(o => !o)} className="w-full flex items-center justify-between px-3 py-2 text-left hover:bg-[#1e3a5f]/[0.05] transition-colors">
+        <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-[0.12em] text-[#1e3a5f]">
+          <Sparkles className="w-3.5 h-3.5" /> Before you call
+        </span>
+        <ChevronDown className={`w-4 h-4 text-[#1e3a5f]/60 transition-transform ${open ? 'rotate-180' : ''}`} />
+      </button>
+      {open && (
+        <ul className="px-3 pb-3 pt-1 space-y-1.5 text-[13px] text-gray-700">
+          {points.map((p, i) => (
+            <li key={i} className="flex gap-2"><span className="text-[#1e3a5f] flex-shrink-0">•</span><span className="leading-snug">{p}</span></li>
+          ))}
+        </ul>
+      )}
+    </div>
+  )
+}
+
+const OUTCOME_LABEL: Record<string, string> = {
+  no_answer: 'No answer', spoke: 'Spoke', follow_up: 'Follow-up set',
+  walkthrough: 'Walk-through booked', not_interested: 'Not interested',
+}
+
+function CallLog({ log }: { log: CallLogEntry[] }) {
+  const [open, setOpen] = useState(false)
+  if (!log || log.length === 0) return null
+  return (
+    <div className="mt-3 rounded-xl border border-gray-200/70 bg-gray-50/70 overflow-hidden">
+      <button onClick={() => setOpen(o => !o)} className="w-full flex items-center justify-between px-3 py-2 text-left hover:bg-gray-100/60 transition-colors">
+        <span className="text-[11px] font-semibold uppercase tracking-[0.12em] text-gray-500">Call log · {log.length}</span>
+        <ChevronDown className={`w-4 h-4 text-gray-400 transition-transform ${open ? 'rotate-180' : ''}`} />
+      </button>
+      {open && (
+        <div className="px-3 pb-3 space-y-2.5">
+          {log.slice().reverse().map((c, i) => (
+            <div key={i} className="border-t border-gray-200/70 pt-2 first:border-0 first:pt-0">
+              <p className="text-[11px] font-semibold text-gray-600">
+                {OUTCOME_LABEL[c.outcome] ?? c.outcome} · {relativeDay(c.at)}
+              </p>
+              {c.note && <p className="text-[12px] text-gray-500 mt-0.5 leading-snug whitespace-pre-wrap">{c.note}</p>}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
 // ─── Lead card ───────────────────────────────────────────────────────────────
 
 function LeadCard({ lead, today, onChanged }: { lead: ColdLead; today: string; onChanged: () => void }) {
@@ -142,7 +220,8 @@ function LeadCard({ lead, today, onChanged }: { lead: ColdLead; today: string; o
   const dueToday    = followUpDue || retryDue
 
   async function outcome(kind: 'no_answer' | 'spoke' | 'not_interested') {
-    setBusy(kind); await logCallAction(lead.id, kind); setBusy(null); setLogging(false); onChanged()
+    setBusy(kind); await logCallAction(lead.id, kind, undefined, note)
+    setBusy(null); setLogging(false); setNote(''); onChanged()
   }
   async function outcomeWithDate() {
     if (!pickDate || !date) return
@@ -263,8 +342,9 @@ function LeadCard({ lead, today, onChanged }: { lead: ColdLead; today: string; o
           </div>
         )}
 
-        {/* What was actually sent */}
+        {/* What was actually sent + the call history */}
         <CommsHistory comms={lead.comms} />
+        <CallLog log={lead.call_log} />
 
         {/* Notes */}
         {editNotes ? (
@@ -287,6 +367,9 @@ function LeadCard({ lead, today, onChanged }: { lead: ColdLead; today: string; o
         ) : null}
 
         {flash && <p className="text-xs font-medium text-emerald-600 mt-3">{flash}</p>}
+
+        {/* Pre-call brief */}
+        {!logging && !pickDate && !emailPreview && <CallPrep lead={lead} />}
 
         {/* Action row */}
         {!logging && !pickDate && !emailPreview && (
@@ -351,6 +434,9 @@ function LeadCard({ lead, today, onChanged }: { lead: ColdLead; today: string; o
         {logging && !pickDate && (
           <div className="mt-4">
             <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-gray-400 mb-2">How did the call go?</p>
+            <input type="text" value={note} onChange={e => setNote(e.target.value)}
+              placeholder="Quick summary (optional) — what was said…"
+              className="w-full bg-white border border-gray-200 text-gray-900 placeholder-gray-400 rounded-xl px-3 py-2.5 text-[15px] mb-2 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400" />
             <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
               <button onClick={() => outcome('no_answer')} disabled={!!busy}
                 className="flex items-center justify-center gap-1.5 text-xs font-semibold py-2.5 rounded-xl border border-gray-200 bg-white text-gray-600 hover:border-gray-400 active:scale-[0.98] transition-all">

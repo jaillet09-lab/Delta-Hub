@@ -16,7 +16,7 @@ import {
 } from 'recharts'
 import {
   Upload, Receipt, DollarSign, BarChart3, TrendingUp,
-  Plus, Trash2, RefreshCw, AlertCircle,
+  Plus, Trash2, RefreshCw, AlertCircle, FileText,
 } from 'lucide-react'
 import type { Client } from '@/types/app'
 
@@ -260,6 +260,12 @@ export default function FinancialPage() {
             </button>
           )
         })}
+        <a
+          href="/financial/month-end"
+          className="ml-auto mb-1 inline-flex items-center gap-1.5 text-xs font-semibold text-[#1e3a5f] border border-[#1e3a5f]/20 bg-[#1e3a5f]/5 rounded-lg px-3 py-1.5 hover:bg-[#1e3a5f]/10 transition-colors"
+        >
+          <FileText className="w-3.5 h-3.5" /> Month-End Report
+        </a>
       </div>
 
       {loading ? (
