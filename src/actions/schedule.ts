@@ -9,13 +9,28 @@ async function currentProfile() {
   const supabase = createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return null
-  const { data } = await (supabase as any).from('profiles').select('id, role').eq('user_id', user.id).single()
+  const { data } = await (supabase as any).from('profiles').select('id, role').eq('user_id', user.id).maybeSingle()
   return data ?? null
+}
+
+// These actions use the service-role client (RLS bypassed), so they MUST authorize the caller
+// here: staff, or a cleaner assigned to the client (client-level) or one of its sites.
+async function canAccessClient(db: any, profile: any, clientId: string): Promise<boolean> {
+  if (!profile) return false
+  if (['admin', 'manager'].includes(profile.role)) return true
+  const { data: c } = await db.from('clients')
+    .select('id').eq('id', clientId).eq('assigned_cleaner_id', profile.id).eq('assignment_accepted', true).maybeSingle()
+  if (c) return true
+  const { data: s } = await db.from('client_sites')
+    .select('id').eq('client_id', clientId).eq('assigned_cleaner_id', profile.id).limit(1)
+  return !!(s && s.length)
 }
 
 // Completed task ids for a client on a given shift date.
 export async function getCompletionsAction(clientId: string, dateISO: string): Promise<string[]> {
+  const profile = await currentProfile()
   const db = createAdminClient() as any
+  if (!(await canAccessClient(db, profile, clientId))) return []
   const { data } = await db
     .from('schedule_completions')
     .select('task_id')
@@ -29,6 +44,7 @@ export async function getCompletionsAction(clientId: string, dateISO: string): P
 export async function toggleTaskAction(clientId: string, taskId: string, dateISO: string, done: boolean) {
   const profile = await currentProfile()
   const db = createAdminClient() as any
+  if (!(await canAccessClient(db, profile, clientId))) return { error: 'Not allowed.' }
   if (done) {
     const { error } = await db.from('schedule_completions').upsert(
       {

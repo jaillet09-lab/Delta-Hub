@@ -23,16 +23,26 @@ export function CleanerSchedule({
   const [day, setDay] = useState(() => defaultDay(days))
   const [view, setView] = useState<'today' | 'full'>('today')
   const [done, setDone] = useState<Set<string>>(() => new Set(initialCompleted))
+  const [saveError, setSaveError] = useState(false)
 
   function toggle(taskId: string) {
     const next = new Set(done)
     const nowDone = !next.has(taskId)
     if (nowDone) next.add(taskId); else next.delete(taskId)
     setDone(next)
-    // Persist (fire-and-forget; reverts on error)
-    toggleTaskAction(clientId, taskId, todayISO, nowDone).then((r: any) => {
-      if (r?.error) { const revert = new Set(next); if (nowDone) revert.delete(taskId); else revert.add(taskId); setDone(revert) }
-    })
+    setSaveError(false)
+    // Persist. On any failure (incl. no signal on site), revert so we never show a tick
+    // that didn't save, and tell the cleaner to retry.
+    toggleTaskAction(clientId, taskId, todayISO, nowDone)
+      .then((r: any) => { if (r?.error) throw new Error(r.error) })
+      .catch(() => {
+        setDone((cur) => {
+          const rb = new Set(cur)
+          if (nowDone) rb.delete(taskId); else rb.add(taskId)
+          return rb
+        })
+        setSaveError(true)
+      })
   }
 
   const visitTasks = useMemo(() => scope.filter(t => t.frequency === 'visit'), [scope])
@@ -99,6 +109,12 @@ export function CleanerSchedule({
           </button>
         ))}
       </div>
+
+      {saveError && (
+        <div className="bg-amber-50 border-b border-amber-200 px-5 py-2.5 text-[12.5px] text-amber-700 text-center">
+          Couldn&apos;t save your last tap — check your signal and try again.
+        </div>
+      )}
 
       {view === 'today' ? (
         <>
