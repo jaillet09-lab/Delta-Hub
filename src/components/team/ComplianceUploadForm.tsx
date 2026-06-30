@@ -4,15 +4,26 @@ import { useState, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { uploadComplianceDocAction } from '@/actions/team'
 
-interface Client { id: string; business_name: string }
+interface Person { id: string; business_name?: string; full_name?: string }
 
-export function ComplianceUploadForm({ clients }: { clients: Client[] }) {
+const TYPES: { value: string; label: string }[] = [
+  { value: 'sds',          label: 'Safety Data Sheet (SDS)' },
+  { value: 'insurance',    label: 'Insurance Certificate' },
+  { value: 'contract',     label: 'Client Contract' },
+  { value: 'police_check', label: 'Police Check' },
+  { value: 'white_card',   label: 'White Card' },
+  { value: 'qualification',label: 'Qualification / Cert' },
+  { value: 'other',        label: 'Other' },
+]
+
+export function ComplianceUploadForm({ clients, cleaners = [] }: { clients: Person[]; cleaners?: Person[] }) {
   const router = useRouter()
   const fileRef = useRef<HTMLInputElement>(null)
   const [name, setName] = useState('')
   const [description, setDescription] = useState('')
-  const [type, setType] = useState<'sds' | 'insurance' | 'contract' | 'other'>('sds')
-  const [clientId, setClientId] = useState('')
+  const [type, setType] = useState('sds')
+  const [assignee, setAssignee] = useState('')   // '' = global, c:<id> = client, p:<id> = cleaner
+  const [expiry, setExpiry] = useState('')
   const [file, setFile] = useState<File | null>(null)
   const [uploading, setUploading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -30,11 +41,13 @@ export function ComplianceUploadForm({ clients }: { clients: Client[] }) {
     fd.append('name', name.trim())
     fd.append('description', description.trim())
     fd.append('type', type)
-    fd.append('clientId', clientId)
+    fd.append('clientId', assignee.startsWith('c:') ? assignee.slice(2) : '')
+    fd.append('profileId', assignee.startsWith('p:') ? assignee.slice(2) : '')
+    fd.append('expiryDate', expiry)
     const result = await uploadComplianceDocAction(fd)
     setUploading(false)
     if (result.error) return setError(result.error)
-    setSuccess(true); setName(''); setDescription(''); setFile(null); setClientId('')
+    setSuccess(true); setName(''); setDescription(''); setFile(null); setAssignee(''); setExpiry('')
     if (fileRef.current) fileRef.current.value = ''
     router.refresh()
     setTimeout(() => setSuccess(false), 3000)
@@ -47,7 +60,7 @@ export function ComplianceUploadForm({ clients }: { clients: Client[] }) {
 
       <div>
         <label className={lbl}>Document Name</label>
-        <input className={inp} value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g., SDS - Floor Cleaner" />
+        <input className={inp} value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g., Public Liability Insurance" />
       </div>
       <div>
         <label className={lbl}>Description <span className="text-gray-400">(optional)</span></label>
@@ -55,33 +68,34 @@ export function ComplianceUploadForm({ clients }: { clients: Client[] }) {
       </div>
       <div>
         <label className={lbl}>Type</label>
-        <select
-          className={inp}
-          value={type}
-          onChange={(e) => {
-            const t = e.target.value as any
-            setType(t)
-            if (t === 'contract') {
-              setName('Service Agreement')
-              setDescription('Your signed service agreement outlining scope, schedule, and terms.')
-            } else if (type === 'contract') {
-              setName('')
-              setDescription('')
-            }
-          }}
-        >
-          <option value="sds">Safety Data Sheet (SDS)</option>
-          <option value="insurance">Insurance Certificate</option>
-          <option value="contract">Client Contract</option>
-          <option value="other">Other</option>
+        <select className={inp} value={type} onChange={(e) => {
+          const t = e.target.value
+          setType(t)
+          if (t === 'contract') { setName('Service Agreement'); setDescription('Your signed service agreement outlining scope, schedule, and terms.') }
+          else if (type === 'contract') { setName(''); setDescription('') }
+        }}>
+          {TYPES.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
         </select>
       </div>
       <div>
-        <label className={lbl}>Assign to Client <span className="text-gray-400">(leave blank for global)</span></label>
-        <select className={inp} value={clientId} onChange={(e) => setClientId(e.target.value)}>
+        <label className={lbl}>Belongs to</label>
+        <select className={inp} value={assignee} onChange={(e) => setAssignee(e.target.value)}>
           <option value="">Global (all clients)</option>
-          {clients.map((c) => <option key={c.id} value={c.id}>{c.business_name}</option>)}
+          {clients.length > 0 && (
+            <optgroup label="Client">
+              {clients.map((c) => <option key={c.id} value={`c:${c.id}`}>{c.business_name}</option>)}
+            </optgroup>
+          )}
+          {cleaners.length > 0 && (
+            <optgroup label="Cleaner">
+              {cleaners.map((p) => <option key={p.id} value={`p:${p.id}`}>{p.full_name}</option>)}
+            </optgroup>
+          )}
         </select>
+      </div>
+      <div>
+        <label className={lbl}>Expiry date <span className="text-gray-400">(optional — drives the monitor)</span></label>
+        <input type="date" className={inp} value={expiry} onChange={(e) => setExpiry(e.target.value)} />
       </div>
       <div>
         <label className={lbl}>File (PDF)</label>

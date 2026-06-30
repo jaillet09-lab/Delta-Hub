@@ -13,6 +13,8 @@ export async function uploadComplianceDocAction(formData: FormData) {
   const description = (formData.get('description') as string) || null
   const type        = formData.get('type') as string
   const clientId    = formData.get('clientId') as string
+  const profileId   = formData.get('profileId') as string
+  const expiryDate  = (formData.get('expiryDate') as string) || null
 
   if (!file || !name || !type) return { error: 'Missing required fields' }
 
@@ -33,8 +35,10 @@ export async function uploadComplianceDocAction(formData: FormData) {
       name,
       description,
       type,
-      file_url:  data.publicUrl.replace(/[\n\r\t\s]/g, ''),
-      client_id: clientId || null,
+      file_url:    data.publicUrl.replace(/[\n\r\t\s]/g, ''),
+      client_id:   clientId || null,
+      profile_id:  profileId || null,
+      expiry_date: expiryDate,
     })
 
   if (dbErr) return { error: dbErr.message }
