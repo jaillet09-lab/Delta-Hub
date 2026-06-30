@@ -72,11 +72,13 @@ export default async function CleanerClientPage({ params }: { params: { id: stri
 
   // Prefer an in-progress/flagged job, then one still to do, then a completed one
   const jobs = (candidateJobs ?? []) as any[]
-  const todayJob =
-    jobs.find((j) => j.status === 'in_progress' || j.status === 'flagged')
-    ?? jobs.find((j) => j.status === 'not_started')
-    ?? jobs.find((j) => j.status === 'completed')
+  const pickJob = (list: any[]) =>
+    list.find((j) => j.status === 'in_progress' || j.status === 'flagged')
+    ?? list.find((j) => j.status === 'not_started')
+    ?? list.find((j) => j.status === 'completed')
     ?? null
+  // Client-level job ignores site-scoped jobs (multi-site shows Start/Finish per site)
+  const todayJob = pickJob(jobs.filter((j: any) => !j.site_id))
 
   const serviceDays: string[] = client.service_days ?? []
   const checklist = todayJob?.checklist ?? []
@@ -91,9 +93,6 @@ export default async function CleanerClientPage({ params }: { params: { id: stri
     service_days:  serviceDays,
     start_date:    client.start_date ?? null,
   }, 60).slice(0, 5)
-
-  const isInProgress = todayJob?.status === 'in_progress' || todayJob?.status === 'flagged'
-  const isCompleted  = todayJob?.status === 'completed'
 
   // ── Scope-of-works checklist(s) ──
   // Today's completions for the whole client (task ids are unique per site, so one set
@@ -119,16 +118,63 @@ export default async function CleanerClientPage({ params }: { params: { id: stri
           .filter((s) => Array.isArray(s.scope) && s.scope.length > 0)
           .map((s) => ({
             key: s.id,
+            siteId: s.id as string,
             name: s.site_name as string,
             short: [s.suburb, dayKey(s.frequency)].filter(Boolean).join(' · '),
             scope: s.scope as ScopeTask[],
             cleanDays: (s.clean_days?.length ? s.clean_days : fallbackDays(s.service_days ?? [])) as string[],
+            address: (s.address ?? null) as string | null,
+            suburb: (s.suburb ?? null) as string | null,
+            job: pickJob(jobs.filter((j: any) => j.site_id === s.id)),
           }))
       : []
 
   const clientScope: ScopeTask[] = Array.isArray(client.scope) ? client.scope : []
   const clientCleanDays: string[] = client.clean_days?.length ? client.clean_days : fallbackDays(serviceDays)
   const clientShort = [client.suburb, dayKey(client.frequency)].filter(Boolean).join(' · ')
+
+  // Start / Finish control — used once for single-site clients, and once per site for multi-site.
+  function jobControl(opts: { job: any; siteId: string | null; address: string | null; suburb: string | null; checklist: any[] }) {
+    const { job, siteId, address, suburb, checklist } = opts
+    const inProg = job?.status === 'in_progress' || job?.status === 'flagged'
+    const done   = job?.status === 'completed'
+    return (
+      <div className="border-t border-gray-100 pt-5 mt-4">
+        <p className="text-xs font-semibold text-gray-400 uppercase tracking-widest mb-3">
+          {siteId ? 'Start / Finish' : "Today's Clean"}
+        </p>
+        {done && (
+          <div className="space-y-3">
+            <div className="bg-white rounded-2xl px-5 py-5 flex items-center gap-3">
+              <CheckCircle2 className="w-5 h-5 text-black flex-shrink-0" />
+              <div>
+                <p className="text-sm font-semibold text-black">Clean completed</p>
+                <p className="text-xs text-gray-400 mt-0.5">Great work.</p>
+              </div>
+            </div>
+            <p className="text-xs text-gray-400">Need to go back on site?</p>
+            <StartCleanButton clientId={params.id} siteId={siteId} address={address} suburb={suburb} label="Start Again" />
+          </div>
+        )}
+        {inProg && job && (
+          <div className="space-y-4">
+            <div className="bg-white rounded-2xl px-5 py-3 flex items-center gap-2">
+              <span className="w-2 h-2 rounded-full bg-black animate-pulse" />
+              <p className="text-sm font-semibold text-black">Clean in progress</p>
+            </div>
+            <SubmitJobForm jobId={job.id} checklist={checklist} />
+            <FlagModal jobId={job.id} clientId={params.id} />
+          </div>
+        )}
+        {!done && !inProg && (
+          <div className="space-y-3">
+            <p className="text-xs text-gray-400">Tap below when you arrive on site.</p>
+            <StartCleanButton clientId={params.id} siteId={siteId} address={address} suburb={suburb} />
+          </div>
+        )}
+      </div>
+    )
+  }
 
   return (
     <PortalShell
@@ -143,19 +189,21 @@ export default async function CleanerClientPage({ params }: { params: { id: stri
 
       {/* Today's schedule checklist(s) */}
       {siteChecklists.length > 0 ? (
-        <div className="space-y-4 mb-6">
+        <div className="space-y-6 mb-6">
           {siteChecklists.map((s) => (
-            <CleanerSchedule
-              key={s.key}
-              clientId={params.id}
-              clientName={s.name}
-              siteShort={s.short}
-              scope={s.scope}
-              cleanDays={s.cleanDays}
-              todayISO={today}
-              dateLabel={dateLabel}
-              initialCompleted={completedIds}
-            />
+            <div key={s.key}>
+              <CleanerSchedule
+                clientId={params.id}
+                clientName={s.name}
+                siteShort={s.short}
+                scope={s.scope}
+                cleanDays={s.cleanDays}
+                todayISO={today}
+                dateLabel={dateLabel}
+                initialCompleted={completedIds}
+              />
+              {jobControl({ job: s.job, siteId: s.siteId, address: s.address, suburb: s.suburb, checklist: s.job?.checklist ?? [] })}
+            </div>
           ))}
         </div>
       ) : clientScope.length > 0 ? (
@@ -246,54 +294,9 @@ export default async function CleanerClientPage({ params }: { params: { id: stri
         )}
       </div>
 
-      {/* ── Job section ── */}
-      <div className="border-t border-gray-100 pt-6">
-        <p className="text-xs font-semibold text-gray-400 uppercase tracking-widest mb-4">Today's Clean</p>
-
-        {/* Completed — show summary + option to restart */}
-        {isCompleted && (
-          <div className="space-y-3">
-            <div className="bg-white rounded-2xl px-5 py-5 flex items-center gap-3">
-              <CheckCircle2 className="w-5 h-5 text-black flex-shrink-0" />
-              <div>
-                <p className="text-sm font-semibold text-black">Clean completed</p>
-                <p className="text-xs text-gray-400 mt-0.5">Great work today.</p>
-              </div>
-            </div>
-            <p className="text-xs text-gray-400">Need to go back on site?</p>
-            <StartCleanButton
-              clientId={params.id}
-              address={client.address ?? null}
-              suburb={client.suburb ?? null}
-              label="Start Again"
-            />
-          </div>
-        )}
-
-        {/* In progress — show submit form */}
-        {isInProgress && todayJob && (
-          <div className="space-y-4">
-            <div className="bg-white rounded-2xl px-5 py-3 flex items-center gap-2">
-              <span className="w-2 h-2 rounded-full bg-black animate-pulse" />
-              <p className="text-sm font-semibold text-black">Clean in progress</p>
-            </div>
-            <SubmitJobForm jobId={todayJob.id} checklist={checklist} />
-            <FlagModal jobId={todayJob.id} clientId={params.id} />
-          </div>
-        )}
-
-        {/* Not started */}
-        {!todayJob && (
-          <div className="space-y-3">
-            <p className="text-xs text-gray-400">Tap below when you arrive on site.</p>
-            <StartCleanButton
-              clientId={params.id}
-              address={client.address ?? null}
-              suburb={client.suburb ?? null}
-            />
-          </div>
-        )}
-      </div>
+      {/* ── Job section — single-site clients only (multi-site shows Start/Finish per site above) ── */}
+      {siteChecklists.length === 0 &&
+        jobControl({ job: todayJob, siteId: null, address: client.address ?? null, suburb: client.suburb ?? null, checklist })}
     </PortalShell>
   )
 }

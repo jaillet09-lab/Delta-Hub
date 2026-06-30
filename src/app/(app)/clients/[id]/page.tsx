@@ -46,7 +46,7 @@ export default async function ClientProfilePage({ params }: { params: { id: stri
       .limit(12),
     (supabase as any)
       .from('job_assignments')
-      .select('*, profiles(full_name), job_submissions(started_at, completed_at, photo_urls, notes)')
+      .select('*, profiles(full_name), client_sites(site_name), job_submissions(started_at, completed_at, photo_urls, notes)')
       .eq('client_id', params.id)
       .order('scheduled_date', { ascending: false })
       .limit(30),
@@ -581,6 +581,7 @@ export default async function ClientProfilePage({ params }: { params: { id: stri
               <thead>
                 <tr className="border-b border-gray-100">
                   <th className="text-left text-xs text-gray-400 font-medium pb-2 pr-4">Date</th>
+                  {client.is_multi_site && <th className="text-left text-xs text-gray-400 font-medium pb-2 pr-4">Site</th>}
                   <th className="text-left text-xs text-gray-400 font-medium pb-2 pr-4">Cleaner</th>
                   <th className="text-left text-xs text-gray-400 font-medium pb-2 pr-4">Started</th>
                   <th className="text-left text-xs text-gray-400 font-medium pb-2 pr-4">Finished</th>
@@ -622,6 +623,11 @@ export default async function ClientProfilePage({ params }: { params: { id: stri
                           weekday: 'short', day: 'numeric', month: 'short',
                         })}
                       </td>
+                      {client.is_multi_site && (
+                        <td className="py-2.5 pr-4 text-gray-500 whitespace-nowrap">
+                          {job.client_sites?.site_name ?? '—'}
+                        </td>
+                      )}
                       <td className="py-2.5 pr-4 text-gray-500 whitespace-nowrap">
                         {job.profiles?.full_name ?? '—'}
                       </td>

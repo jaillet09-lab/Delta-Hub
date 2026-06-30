@@ -232,7 +232,7 @@ export async function uploadJobPhotoAction(jobId: string, formData: FormData) {
 
 // ─── Start a clean for a client (creates job + marks in_progress) ────────────
 
-export async function startCleanForClientAction(clientId: string) {
+export async function startCleanForClientAction(clientId: string, siteId?: string | null) {
   const supabase = createClient()
   const profile = await getCurrentProfile()
   if (!profile) return { error: 'Not authenticated' }
@@ -259,13 +259,15 @@ export async function startCleanForClientAction(clientId: string) {
 
   // Resume an existing job within the weekend window (today, or Saturday's job
   // when it's Sunday) rather than creating a duplicate. Prefer a not-yet-done one.
-  const { data: existingJobs } = await (supabase as any)
+  // For multi-site clients, scope to the specific site so each site has its own job.
+  let resumeQ = (supabase as any)
     .from('job_assignments')
     .select('id, status, scheduled_date')
     .eq('client_id', clientId)
     .eq('cleaner_id', profile.id)
     .in('scheduled_date', dates)
-    .order('scheduled_date', { ascending: false })
+  resumeQ = siteId ? resumeQ.eq('site_id', siteId) : resumeQ.is('site_id', null)
+  const { data: existingJobs } = await resumeQ.order('scheduled_date', { ascending: false })
 
   const existing = (existingJobs ?? []).find((j: any) => j.status !== 'completed')
     ?? (existingJobs ?? [])[0]
@@ -275,14 +277,20 @@ export async function startCleanForClientAction(clientId: string) {
   if (existing?.id) {
     jobId = existing.id
   } else {
-    // Fetch client address for the job record
-    const { data: client } = await (supabase as any)
-      .from('clients')
-      .select('address, suburb, frequency')
-      .eq('id', clientId)
-      .single()
-
-    const address = [client?.address, client?.suburb].filter(Boolean).join(', ')
+    // Address/frequency for the job record — from the site when site-scoped, else the client
+    let jobAddress: string | null = null
+    let freqLabel: string | null = null
+    if (siteId) {
+      const { data: site } = await (supabase as any)
+        .from('client_sites').select('address, suburb, frequency').eq('id', siteId).single()
+      jobAddress = [site?.address, site?.suburb].filter(Boolean).join(', ') || null
+      freqLabel  = site?.frequency ?? null
+    } else {
+      const { data: client } = await (supabase as any)
+        .from('clients').select('address, suburb, frequency').eq('id', clientId).single()
+      jobAddress = [client?.address, client?.suburb].filter(Boolean).join(', ') || null
+      freqLabel  = client?.frequency ?? null
+    }
 
     const { data: newJob, error: createErr } = await (supabase as any)
       .from('job_assignments')
@@ -290,10 +298,11 @@ export async function startCleanForClientAction(clientId: string) {
         client_id:       clientId,
         cleaner_id:      profile.id,
         scheduled_date:  today,
-        address:         address || null,
+        address:         jobAddress,
         status:          'not_started',
         checklist:       [],
-        frequency_label: client?.frequency ?? null,
+        frequency_label: freqLabel,
+        site_id:         siteId ?? null,
       })
       .select('id')
       .single()

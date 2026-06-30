@@ -10,6 +10,7 @@ interface Props {
   address:  string | null
   suburb:   string | null
   label?:   string
+  siteId?:  string | null
 }
 
 function haversineKm(lat1: number, lon1: number, lat2: number, lon2: number) {
@@ -40,7 +41,7 @@ function getGPS(): Promise<GeolocationPosition> {
 
 type Step = 'idle' | 'locating' | 'geocoding' | 'starting' | 'error'
 
-export function StartCleanButton({ clientId, address, suburb, label: customLabel }: Props) {
+export function StartCleanButton({ clientId, address, suburb, label: customLabel, siteId }: Props) {
   const router = useRouter()
   const [step, setStep]   = useState<Step>('idle')
   const [err,  setErr]    = useState<string | null>(null)
@@ -50,7 +51,7 @@ export function StartCleanButton({ clientId, address, suburb, label: customLabel
   async function runStart() {
     setStep('starting')
     try {
-      const r = await startCleanForClientAction(clientId)
+      const r = await startCleanForClientAction(clientId, siteId ?? null)
       if (r?.error) { setErr(r.error); setStep('error') } else { router.refresh() }
     } catch {
       setErr('Could not start the clean. Check your connection and try again.')
