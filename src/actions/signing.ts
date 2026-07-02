@@ -88,7 +88,7 @@ export async function submitSignatureAction(code: string, typedName: string) {
   const db = createAdminClient() as any
   const { data: doc } = await db
     .from('proposal_documents')
-    .select('id, status, signed_at, data')
+    .select('id, status, signed_at, data, client_id')
     .eq('sign_code', code).maybeSingle()
   if (!doc) return { error: 'This signing link is not valid.' }
   if (doc.signed_at) return { success: true, alreadySigned: true, date: auDate(doc.signed_at) }
@@ -112,6 +112,7 @@ export async function submitSignatureAction(code: string, typedName: string) {
   sendEmail(OWNER_EMAIL, `Signed — ${agreement.clientName}`, signedOwnerEmail(agreement, name, signedAt, doc.id)).catch(() => {})
 
   revalidatePath('/documents'); revalidatePath(`/documents/${doc.id}`)
+  if (doc.client_id) revalidatePath(`/clients/${doc.client_id}`)
   return { success: true, date: auDate(signedAt) }
 }
 

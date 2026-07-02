@@ -6,7 +6,7 @@ import { ArrowLeft, Plus, Trash2, Check, Download, Loader2, PenLine, Link2 } fro
 import { AgreementDocument } from '@/components/documents/render/AgreementDocument'
 import { withAgreementDefaults, type AgreementData } from '@/lib/documents/agreement'
 import type { ScopeGroup } from '@/lib/documents/proposal'
-import { saveAgreementDocAction, setDocStatusAction } from '@/actions/proposal-docs'
+import { saveAgreementDocAction, setDocStatusAction, setDocClientAction } from '@/actions/proposal-docs'
 import { SendAgreementModal } from '@/components/documents/SendAgreementModal'
 
 const inputCls = 'w-full bg-white border border-gray-200 text-gray-900 placeholder-gray-400 rounded-lg px-3 py-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400'
@@ -19,8 +19,9 @@ function Section({ title, children }: { title: string; children: React.ReactNode
   return <div className="border-b border-gray-100 pb-5 mb-5"><p className="font-display text-sm font-bold text-gray-900 mb-3">{title}</p><div className="space-y-3">{children}</div></div>
 }
 
-export function AgreementEditor({ id, initialData, status, signCode }: { id: string; initialData: AgreementData; status: string; signCode?: string | null }) {
+export function AgreementEditor({ id, initialData, status, signCode, clients = [], clientId }: { id: string; initialData: AgreementData; status: string; signCode?: string | null; clients?: { id: string; business_name: string }[]; clientId?: string | null }) {
   const [data, setData] = useState<AgreementData>(withAgreementDefaults(initialData))
+  const [linkedClient, setLinkedClient] = useState<string>(clientId ?? '')
   const [saved, setSaved] = useState<'idle' | 'saving' | 'saved'>('idle')
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const previewWrap = useRef<HTMLDivElement>(null)
@@ -110,6 +111,20 @@ export function AgreementEditor({ id, initialData, status, signCode }: { id: str
 
       <div className="flex-1 flex min-h-0">
         <div className={`w-full lg:w-[400px] flex-shrink-0 border-r border-gray-200 bg-white overflow-y-auto p-5 ${mobileView === 'edit' ? 'block' : 'hidden'} lg:block`}>
+          <Section title="Client profile">
+            <div>
+              <label className={labelCls}>Save signed contract to</label>
+              <select
+                value={linkedClient}
+                onChange={(e) => { const v = e.target.value; setLinkedClient(v); setDocClientAction(id, v || null).catch(() => {}) }}
+                className={inputCls}
+              >
+                <option value="">— Not linked to a client —</option>
+                {clients.map((c) => <option key={c.id} value={c.id}>{c.business_name}</option>)}
+              </select>
+              <p className="text-[11px] text-gray-400 mt-1">When the client signs, the signed contract shows on this client&apos;s profile.</p>
+            </div>
+          </Section>
           <Section title="Parties">
             <Field label="Provider legal name" value={data.providerName} onChange={v => set('providerName', v)} />
             <Field label="Provider ABN" value={data.providerABN} onChange={v => set('providerABN', v)} />

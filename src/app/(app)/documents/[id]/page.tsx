@@ -16,7 +16,18 @@ export default async function DocumentEditorPage({ params }: { params: { id: str
 
   if (doc.kind === 'agreement') {
     const signCode = await ensureSignCode(doc.id)
-    return <AgreementEditor id={doc.id} status={doc.status} initialData={withAgreementDefaults(doc.data)} signCode={signCode} />
+    const { data: clients } = await db
+      .from('clients').select('id, business_name').eq('active', true).order('business_name')
+    return (
+      <AgreementEditor
+        id={doc.id}
+        status={doc.status}
+        initialData={withAgreementDefaults(doc.data)}
+        signCode={signCode}
+        clients={clients ?? []}
+        clientId={doc.client_id}
+      />
+    )
   }
   return <ProposalEditor id={doc.id} status={doc.status} initialData={withProposalDefaults(doc.data)} />
 }

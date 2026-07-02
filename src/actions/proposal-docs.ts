@@ -126,6 +126,16 @@ export async function setDocStatusAction(id: string, status: string) {
   return { success: true }
 }
 
+// Link a document to a client so a signed agreement lands on that client's profile.
+export async function setDocClientAction(id: string, clientId: string | null) {
+  const db = createAdminClient() as any
+  const { error } = await db.from('proposal_documents').update({ client_id: clientId || null }).eq('id', id)
+  if (error) return { error: error.message }
+  revalidatePath('/documents')
+  revalidatePath(`/documents/${id}`)
+  return { success: true }
+}
+
 // ─── Duplicate / delete ──────────────────────────────────────────────────────
 
 export async function duplicateProposalDocAction(id: string) {
