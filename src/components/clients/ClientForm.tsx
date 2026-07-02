@@ -212,12 +212,23 @@ export function ClientForm({ defaultValues, defaultSites, action, submitLabel = 
           <div className="md:col-span-2">
             <Input label="Contact Email" name="contact_email" type="email" value={contactEmail} onChange={(e) => setContactEmail(e.target.value)} placeholder="contact@business.com.au" />
           </div>
-          <div className="md:col-span-2">
-            <Input label="Street Address" name="address" defaultValue={defaultValues?.address || ''} placeholder="123 Example Street" />
-          </div>
-          <Input label="Suburb"   name="suburb"   defaultValue={defaultValues?.suburb   || ''} placeholder="e.g. Fortitude Valley" />
-          <Input label="Postcode" name="postcode" defaultValue={defaultValues?.postcode || ''} placeholder="4000" maxLength={4} error={errors.postcode?.[0]} />
-          <Select label="State" name="state" defaultValue={defaultValues?.state || 'QLD'} options={STATE_SELECT_OPTIONS} />
+          {/* Client-level address applies only to a single-site client (it IS that site).
+              A multi-site client has no address of its own — each site carries its own below. */}
+          {!isMultiSite ? (
+            <>
+              <div className="md:col-span-2">
+                <Input label="Street Address" name="address" defaultValue={defaultValues?.address || ''} placeholder="123 Example Street" />
+              </div>
+              <Input label="Suburb"   name="suburb"   defaultValue={defaultValues?.suburb   || ''} placeholder="e.g. Fortitude Valley" />
+              <Input label="Postcode" name="postcode" defaultValue={defaultValues?.postcode || ''} placeholder="4000" maxLength={4} error={errors.postcode?.[0]} />
+              <Select label="State" name="state" defaultValue={defaultValues?.state || 'QLD'} options={STATE_SELECT_OPTIONS} />
+            </>
+          ) : (
+            <div className="md:col-span-2 flex items-start gap-2 rounded-lg bg-gray-50 border border-gray-100 px-3 py-2.5">
+              <MapPin className="w-4 h-4 text-gray-400 mt-0.5 flex-shrink-0" />
+              <p className="text-xs text-gray-500">This is a multi-site client, so it has no single address. Each site&apos;s address is set under <span className="font-medium text-gray-600">Sites</span> below.</p>
+            </div>
+          )}
         </div>
       </div>
 
