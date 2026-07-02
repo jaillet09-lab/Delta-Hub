@@ -23,7 +23,7 @@ import {
 import { toggleClientActiveAction } from '@/actions/clients'
 import {
   ArrowLeft, Edit, Phone, Mail, MapPin, AlertTriangle, Calendar, ChevronRight,
-  TrendingUp, DollarSign, BarChart3, Clock, Building2,
+  TrendingUp, DollarSign, BarChart3, Clock, Building2, FileText,
 } from 'lucide-react'
 import type { ServiceType, AdditionalService } from '@/types/app'
 import { ADDITIONAL_SERVICE_MULTIPLIERS as MULT, calcAdditionalMonthlyRevenue, calcAdditionalMonthlyLabour } from '@/types/app'
@@ -60,6 +60,13 @@ export default async function ClientProfilePage({ params }: { params: { id: stri
   const { data: cleanersData } = await (supabase as any)
     .from('profiles').select('id, full_name').eq('role', 'cleaner').order('full_name')
   const cleaners = (cleanersData ?? []) as { id: string; full_name: string | null }[]
+
+  // Latest signed contract document for this client (shown in the Contract card)
+  const { data: contractDoc } = await (supabase as any)
+    .from('compliance_documents')
+    .select('id, name, file_url')
+    .eq('client_id', params.id).eq('type', 'contract')
+    .order('created_at', { ascending: false }).limit(1).maybeSingle()
 
   if (!clientRes.data) notFound()
 
@@ -302,6 +309,18 @@ export default async function ClientProfilePage({ params }: { params: { id: stri
         <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
           <h3 className="text-sm font-semibold text-gray-900 mb-4">Contract</h3>
           <div className="space-y-2.5">
+            {/* Signed contract PDF — open on the profile */}
+            <div className="flex items-center justify-between text-sm">
+              <span className="text-gray-400">Signed contract</span>
+              {contractDoc ? (
+                <a href={`/api/file?url=${Buffer.from(contractDoc.file_url).toString('base64url')}`} target="_blank" rel="noreferrer"
+                  className="inline-flex items-center gap-1 font-medium text-[#1e3a5f] hover:underline">
+                  <FileText className="w-3.5 h-3.5" /> Open PDF
+                </a>
+              ) : (
+                <span className="text-xs text-gray-400">Not on file yet</span>
+              )}
+            </div>
             {[
               { label: 'Frequency',     value: client.frequency ? FREQUENCY_LABELS[client.frequency as keyof typeof FREQUENCY_LABELS] : null },
               { label: 'Days / week',   value: client.days_per_week != null ? `${client.days_per_week} ${client.days_per_week === 1 ? 'day' : 'days'}` : null },
