@@ -12,7 +12,7 @@ import { ImportToPortalButton } from '@/components/clients/ImportToPortalButton'
 import { Button } from '@/components/ui/Button'
 import { ActiveBadge, ServiceTypeBadge } from '@/components/ui/Badge'
 import { formatAUD, formatDate, formatTenure } from '@/lib/formatters'
-import { calculateMonthlyValue } from '@/lib/billing'
+import { calculateMonthlyValue, calculateProfitBreakdown } from '@/lib/billing'
 import { monthLabel } from '@/lib/calendar'
 import {
   FREQUENCY_LABELS,
@@ -439,65 +439,89 @@ export default async function ClientProfilePage({ params }: { params: { id: stri
         </div>
       ) : null}
 
-      {/* Sites — multi-site clients */}
-      {client.is_multi_site && clientSites.length > 0 && (
-        <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
-          <h3 className="text-sm font-semibold text-gray-900 mb-4 flex items-center gap-2">
-            <MapPin className="w-4 h-4 text-gray-400" />
-            Sites · {clientSites.length} location{clientSites.length !== 1 ? 's' : ''}
-          </h3>
-          <div className="space-y-3">
-            {clientSites.map((site: any, i: number) => {
-              const siteRate = site.rate_per_visit ? parseFloat(site.rate_per_visit) : 0
-              const siteMRR  = siteRate && site.frequency
-                ? calculateMonthlyValue(siteRate, site.frequency, site.days_per_week || 1)
-                : 0
-              return (
-                <div key={site.id} className="border border-gray-100 rounded-xl p-4 bg-gray-50">
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="flex items-start gap-3 min-w-0">
-                      <span className="flex-shrink-0 w-6 h-6 rounded-full bg-[#1e3a5f] text-white text-xs font-bold flex items-center justify-center mt-0.5">
-                        {i + 1}
-                      </span>
-                      <div className="min-w-0">
-                        <p className="text-sm font-semibold text-gray-900">{site.site_name}</p>
-                        {(site.address || site.suburb) && (
-                          <p className="text-xs text-gray-400 mt-0.5 flex items-center gap-1">
-                            <MapPin className="w-3 h-3 flex-shrink-0" />
-                            {[site.address, site.suburb, site.state, site.postcode].filter(Boolean).join(', ')}
-                          </p>
-                        )}
-                        <div className="flex flex-wrap gap-x-4 gap-y-1 mt-2">
-                          {site.frequency && (
-                            <span className="text-xs text-gray-500">
-                              {FREQUENCY_LABELS[site.frequency as keyof typeof FREQUENCY_LABELS] ?? site.frequency}
-                            </span>
+      {/* Sites — multi-site clients: aggregate P&L + per-site drill-down (consistent billing math) */}
+      {client.is_multi_site && clientSites.length > 0 && (() => {
+        const round2 = (n: number) => Math.round(n * 100) / 100
+        const fin = clientSites.map((site: any) => {
+          const rate = site.rate_per_visit ? parseFloat(site.rate_per_visit) : 0
+          const chr  = site.cleaner_hourly_rate ? parseFloat(site.cleaner_hourly_rate) : 0
+          const chpv = site.cleaner_hours_per_visit ? parseFloat(site.cleaner_hours_per_visit) : 0
+          const b    = calculateProfitBreakdown(rate, site.frequency ?? 'monthly', chr, chpv, site.days_per_week || 1)
+          return { site, rate, hasRate: rate > 0, hasCost: chr > 0 && chpv > 0, b }
+        })
+        const totRev  = round2(fin.reduce((s: number, f: any) => s + f.b.monthlyRevenue, 0))
+        const totLab  = round2(fin.reduce((s: number, f: any) => s + (f.hasCost ? f.b.monthlyLabour : 0), 0))
+        const totProf = round2(totRev - totLab)
+        const totMargin = totRev > 0 ? round2((totProf / totRev) * 100) : null
+        const anyMissing = fin.some((f: any) => !f.hasRate || !f.hasCost)
+        const mColor = (m: number | null) => m == null ? 'text-gray-400' : m < 0 ? 'text-red-600' : m < 35 ? 'text-amber-600' : 'text-emerald-600'
+        return (
+          <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
+            <h3 className="text-sm font-semibold text-gray-900 mb-4 flex items-center gap-2">
+              <MapPin className="w-4 h-4 text-gray-400" />
+              Sites &amp; P&amp;L · {clientSites.length} location{clientSites.length !== 1 ? 's' : ''}
+            </h3>
+
+            {/* Aggregate across all sites — the whole-client P&L */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4 rounded-xl border border-gray-200 bg-gray-50 p-4">
+              <div><p className="text-xs text-gray-400">Revenue / mo</p><p className="text-base font-bold text-gray-900 tabular-nums">{formatAUD(totRev)}</p></div>
+              <div><p className="text-xs text-gray-400">Labour / mo</p><p className="text-base font-bold text-red-600 tabular-nums">{formatAUD(totLab)}</p></div>
+              <div><p className="text-xs text-gray-400">Profit / mo</p><p className={`text-base font-bold tabular-nums ${totProf >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>{formatAUD(totProf)}</p></div>
+              <div><p className="text-xs text-gray-400">Margin</p><p className={`text-base font-bold tabular-nums ${mColor(totMargin)}`}>{totMargin != null ? `${totMargin.toFixed(0)}%` : '—'}</p></div>
+            </div>
+            {anyMissing && (
+              <div className="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 mb-4">
+                <AlertTriangle className="w-3.5 h-3.5 text-amber-600 mt-0.5 flex-shrink-0" />
+                <p className="text-xs text-amber-700">A site is missing a rate or cleaner cost — its P&amp;L is incomplete until you add those in the site settings.</p>
+              </div>
+            )}
+
+            <div className="space-y-3">
+              {fin.map(({ site, rate, hasRate, hasCost, b }: any, i: number) => {
+                const prof = round2(b.monthlyRevenue - (hasCost ? b.monthlyLabour : 0))
+                const margin = b.monthlyRevenue > 0 ? round2((prof / b.monthlyRevenue) * 100) : null
+                return (
+                  <div key={site.id} className="border border-gray-100 rounded-xl p-4 bg-white">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex items-start gap-3 min-w-0">
+                        <span className="flex-shrink-0 w-6 h-6 rounded-full bg-[#1e3a5f] text-white text-xs font-bold flex items-center justify-center mt-0.5">{i + 1}</span>
+                        <div className="min-w-0">
+                          <p className="text-sm font-semibold text-gray-900">{site.site_name}</p>
+                          {(site.address || site.suburb) && (
+                            <p className="text-xs text-gray-400 mt-0.5 flex items-center gap-1">
+                              <MapPin className="w-3 h-3 flex-shrink-0" />
+                              {[site.address, site.suburb, site.state, site.postcode].filter(Boolean).join(', ')}
+                            </p>
                           )}
-                          {site.days_per_week && (
-                            <span className="text-xs text-gray-500">{site.days_per_week}×/wk</span>
-                          )}
-                          {(site.service_days ?? []).length > 0 && (
-                            <span className="text-xs text-gray-500">{(site.service_days as string[]).join(' · ')}</span>
-                          )}
+                          <div className="flex flex-wrap gap-x-4 gap-y-1 mt-2">
+                            {site.frequency && <span className="text-xs text-gray-500">{FREQUENCY_LABELS[site.frequency as keyof typeof FREQUENCY_LABELS] ?? site.frequency}</span>}
+                            {site.days_per_week && <span className="text-xs text-gray-500">{site.days_per_week}×/wk</span>}
+                            {hasRate && <span className="text-xs text-gray-500">{formatAUD(rate)}/visit</span>}
+                          </div>
                         </div>
                       </div>
-                    </div>
-                    {siteMRR > 0 && (
                       <div className="text-right flex-shrink-0">
-                        <p className="text-sm font-bold text-gray-900">{formatAUD(siteRate)}/visit</p>
-                        <p className="text-xs text-gray-400">≈ {formatAUD(siteMRR)}/mo</p>
+                        {hasRate ? (
+                          <>
+                            <p className={`text-sm font-bold tabular-nums ${prof >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>{formatAUD(prof)}/mo</p>
+                            <p className="text-xs text-gray-400 tabular-nums">{formatAUD(b.monthlyRevenue)} rev{hasCost ? ` · ${formatAUD(b.monthlyLabour)} cost` : ''}</p>
+                            <p className={`text-xs font-semibold ${mColor(margin)}`}>{margin != null ? `${margin.toFixed(0)}% margin` : ''}{!hasCost ? ' · no cost set' : ''}</p>
+                          </>
+                        ) : (
+                          <p className="text-xs font-semibold text-amber-600">No rate set</p>
+                        )}
                       </div>
+                    </div>
+                    {site.scope_of_work && (
+                      <p className="text-xs text-gray-500 mt-3 pt-3 border-t border-gray-200 leading-relaxed">{site.scope_of_work}</p>
                     )}
                   </div>
-                  {site.scope_of_work && (
-                    <p className="text-xs text-gray-500 mt-3 pt-3 border-t border-gray-200 leading-relaxed">{site.scope_of_work}</p>
-                  )}
-                </div>
-              )
-            })}
+                )
+              })}
+            </div>
           </div>
-        </div>
-      )}
+        )
+      })()}
 
       {/* Notes */}
       {client.notes && (
