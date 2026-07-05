@@ -26,16 +26,21 @@ function fmtRange(a: string, b: string): string {
 
 interface Item { label: string; date: string; cleaner: string | null }
 
+function section(title: string, dot: string, textColor: string, bg: string, border: string, items: Item[]): string {
+  if (!items.length) return ''
+  const rows = items.map((it) =>
+    `<div style="line-height:1.85;"><span style="display:inline-block;width:6px;height:6px;border-radius:50%;background:${dot};vertical-align:middle;margin-right:8px;"></span>${it.label}<span style="color:#94a3b8;"> · ${fmt(it.date)} · ${it.cleaner ?? 'unassigned'}</span></div>`
+  ).join('')
+  return `<p style="margin:0 0 6px;font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:${textColor};">${title} · ${items.length}</p>` +
+    `<div style="background:${bg};border:1px solid ${border};border-radius:10px;padding:12px 14px;font-size:13px;color:#334155;margin-bottom:14px;">${rows}</div>`
+}
+
 function buildHtml(opts: {
   name: string; period: string; appUrl: string;
-  completed: Item[];
-  open: Item[];
+  started: Item[]; notStarted: Item[]; completed: Item[];
 }): string {
-  const total = opts.completed.length + opts.open.length
-  const pct = total ? Math.round((100 * opts.completed.length) / total) : 0
-  const row = (it: Item, color: string) =>
-    `<div style="line-height:1.9;"><span style="display:inline-block;width:6px;height:6px;border-radius:50%;background:${color};vertical-align:middle;margin-right:8px;"></span>${it.label} <span style="color:#94a3b8;">· ${fmt(it.date)}${it.cleaner ? ` · ${it.cleaner}` : ' · unassigned'}</span></div>`
-
+  const card = (n: number, label: string, color: string, bg: string) =>
+    `<td style="width:33%;background:${bg};border-radius:10px;padding:12px;text-align:center;"><p style="margin:0;font-size:24px;font-weight:700;color:${color};">${n}</p><p style="margin:3px 0 0;font-size:11px;color:${color};line-height:1.3;">${label}</p></td>`
   return `
     <div style="font-family:-apple-system,Segoe UI,Roboto,Arial,sans-serif;max-width:560px;margin:0 auto;color:#0f172a;">
       <div style="background:#0b1320;border-radius:12px 12px 0 0;padding:22px 26px;">
@@ -43,15 +48,16 @@ function buildHtml(opts: {
         <h1 style="margin:6px 0 0;color:#fff;font-size:20px;">Week of ${opts.period}</h1>
       </div>
       <div style="background:#fff;border:1px solid #e5e7eb;border-top:none;border-radius:0 0 12px 12px;padding:24px 26px;">
-        <p style="margin:0 0 16px;font-size:14px;">Morning ${opts.name}, here's how last week ran.</p>
-        <table role="presentation" style="width:100%;border-collapse:separate;border-spacing:8px;margin:0 -8px 16px;"><tr>
-          <td style="width:33%;background:#f1f5f9;border-radius:10px;padding:12px;"><p style="margin:0;font-size:22px;font-weight:700;">${opts.completed.length}</p><p style="margin:2px 0 0;font-size:11px;color:#64748b;">Completed</p></td>
-          <td style="width:33%;background:#fffbeb;border-radius:10px;padding:12px;"><p style="margin:0;font-size:22px;font-weight:700;color:#b45309;">${opts.open.length}</p><p style="margin:2px 0 0;font-size:11px;color:#b45309;">Not marked off</p></td>
-          <td style="width:33%;background:#f1f5f9;border-radius:10px;padding:12px;"><p style="margin:0;font-size:22px;font-weight:700;">${pct}%</p><p style="margin:2px 0 0;font-size:11px;color:#64748b;">Completion</p></td>
+        <p style="margin:0 0 16px;font-size:14px;">Morning ${opts.name}, here's last week at a glance.</p>
+        <table role="presentation" style="width:100%;border-collapse:separate;border-spacing:8px;margin:0 -8px 20px;"><tr>
+          ${card(opts.started.length, 'Started, not finished', '#b45309', '#fffbeb')}
+          ${card(opts.notStarted.length, 'Never started', '#b91c1c', '#fef2f2')}
+          ${card(opts.completed.length, 'Completed', '#15803d', '#f0fdf4')}
         </tr></table>
-        ${opts.completed.length ? `<p style="margin:0 0 6px;font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#94a3b8;">Completed · ${opts.completed.length}</p><div style="font-size:13px;color:#334155;margin-bottom:16px;">${opts.completed.map(c => row(c, '#16a34a')).join('')}</div>` : ''}
-        ${opts.open.length ? `<p style="margin:0 0 6px;font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#b45309;">Still open — chase these · ${opts.open.length}</p><div style="background:#fffbeb;border:1px solid #fde68a;border-radius:10px;padding:12px 14px;font-size:13px;color:#78350f;margin-bottom:20px;">${opts.open.map(c => row(c, '#f59e0b')).join('')}</div>` : ''}
-        <a href="${opts.appUrl}/manager/dashboard" style="display:inline-block;background:#0b1320;color:#fff;text-decoration:none;font-size:14px;font-weight:700;border-radius:10px;padding:12px 22px;">Open the manager dashboard →</a>
+        ${section('Started, not finished', '#f59e0b', '#b45309', '#fffbeb', '#fde68a', opts.started)}
+        ${section('Never started', '#ef4444', '#b91c1c', '#fef2f2', '#fecaca', opts.notStarted)}
+        ${section('Completed', '#16a34a', '#15803d', '#f0fdf4', '#bbf7d0', opts.completed)}
+        <a href="${opts.appUrl}/manager/dashboard" style="display:inline-block;margin-top:6px;background:#0b1320;color:#fff;text-decoration:none;font-size:14px;font-weight:700;border-radius:10px;padding:12px 22px;">Open the manager dashboard →</a>
         <p style="margin:22px 0 0;font-size:11px;color:#94a3b8;border-top:1px solid #f1f5f9;padding-top:14px;">Sent Monday mornings · Delta Cleaning Operations Hub</p>
       </div>
     </div>`
@@ -83,9 +89,10 @@ export async function GET(request: Request) {
     const name = j.clients?.business_name ?? 'A client'
     return { label: site ? `${name} — ${site}` : name, date: j.scheduled_date, cleaner: j.profiles?.full_name ?? null }
   }
-  const completed = (jobs ?? []).filter((j: any) => j.status === 'completed').map(toItem)
-  const open      = (jobs ?? []).filter((j: any) => j.status !== 'completed').map(toItem)
-  const period    = fmtRange(weekAgo, brisbaneDate(-1))
+  const started    = (jobs ?? []).filter((j: any) => j.status === 'in_progress' || j.status === 'flagged').map(toItem)
+  const notStarted = (jobs ?? []).filter((j: any) => j.status === 'not_started').map(toItem)
+  const completed  = (jobs ?? []).filter((j: any) => j.status === 'completed').map(toItem)
+  const period     = fmtRange(weekAgo, brisbaneDate(-1))
 
   // Recipients
   let recipients: { email: string; name: string }[]
@@ -104,12 +111,12 @@ export async function GET(request: Request) {
   let sent = 0
   const failures: string[] = []
   for (const r of recipients) {
-    const html = buildHtml({ name: r.name, period, appUrl, completed, open })
+    const html = buildHtml({ name: r.name, period, appUrl, started, notStarted, completed })
     const subject = `${testTo ? '[Test] ' : ''}Weekly report — ${period}`
     const res = await sendEmail(r.email, subject, html)
     if (res.success) sent++
     else failures.push(`${r.email}: ${res.error}`)
   }
 
-  return NextResponse.json({ sent, recipients: recipients.map((r) => r.email), completed: completed.length, open: open.length, failures })
+  return NextResponse.json({ sent, recipients: recipients.map((r) => r.email), started: started.length, notStarted: notStarted.length, completed: completed.length, failures })
 }
