@@ -24,15 +24,17 @@ function fmtRange(a: string, b: string): string {
   return `${d(a)} – ${d(b)}`
 }
 
+interface Item { label: string; date: string; cleaner: string | null }
+
 function buildHtml(opts: {
   name: string; period: string; appUrl: string;
-  completed: { label: string; date: string }[];
-  open: { label: string; date: string }[];
+  completed: Item[];
+  open: Item[];
 }): string {
   const total = opts.completed.length + opts.open.length
   const pct = total ? Math.round((100 * opts.completed.length) / total) : 0
-  const row = (label: string, date: string, color: string) =>
-    `<div style="line-height:1.9;"><span style="display:inline-block;width:6px;height:6px;border-radius:50%;background:${color};vertical-align:middle;margin-right:8px;"></span>${label} <span style="color:#94a3b8;">· ${fmt(date)}</span></div>`
+  const row = (it: Item, color: string) =>
+    `<div style="line-height:1.9;"><span style="display:inline-block;width:6px;height:6px;border-radius:50%;background:${color};vertical-align:middle;margin-right:8px;"></span>${it.label} <span style="color:#94a3b8;">· ${fmt(it.date)}${it.cleaner ? ` · ${it.cleaner}` : ' · unassigned'}</span></div>`
 
   return `
     <div style="font-family:-apple-system,Segoe UI,Roboto,Arial,sans-serif;max-width:560px;margin:0 auto;color:#0f172a;">
@@ -47,8 +49,8 @@ function buildHtml(opts: {
           <td style="width:33%;background:#fffbeb;border-radius:10px;padding:12px;"><p style="margin:0;font-size:22px;font-weight:700;color:#b45309;">${opts.open.length}</p><p style="margin:2px 0 0;font-size:11px;color:#b45309;">Not marked off</p></td>
           <td style="width:33%;background:#f1f5f9;border-radius:10px;padding:12px;"><p style="margin:0;font-size:22px;font-weight:700;">${pct}%</p><p style="margin:2px 0 0;font-size:11px;color:#64748b;">Completion</p></td>
         </tr></table>
-        ${opts.completed.length ? `<p style="margin:0 0 6px;font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#94a3b8;">Completed · ${opts.completed.length}</p><div style="font-size:13px;color:#334155;margin-bottom:16px;">${opts.completed.map(c => row(c.label, c.date, '#16a34a')).join('')}</div>` : ''}
-        ${opts.open.length ? `<p style="margin:0 0 6px;font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#b45309;">Still open — chase these · ${opts.open.length}</p><div style="background:#fffbeb;border:1px solid #fde68a;border-radius:10px;padding:12px 14px;font-size:13px;color:#78350f;margin-bottom:20px;">${opts.open.map(c => row(c.label, c.date, '#f59e0b')).join('')}</div>` : ''}
+        ${opts.completed.length ? `<p style="margin:0 0 6px;font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#94a3b8;">Completed · ${opts.completed.length}</p><div style="font-size:13px;color:#334155;margin-bottom:16px;">${opts.completed.map(c => row(c, '#16a34a')).join('')}</div>` : ''}
+        ${opts.open.length ? `<p style="margin:0 0 6px;font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#b45309;">Still open — chase these · ${opts.open.length}</p><div style="background:#fffbeb;border:1px solid #fde68a;border-radius:10px;padding:12px 14px;font-size:13px;color:#78350f;margin-bottom:20px;">${opts.open.map(c => row(c, '#f59e0b')).join('')}</div>` : ''}
         <a href="${opts.appUrl}/manager/dashboard" style="display:inline-block;background:#0b1320;color:#fff;text-decoration:none;font-size:14px;font-weight:700;border-radius:10px;padding:12px 22px;">Open the manager dashboard →</a>
         <p style="margin:22px 0 0;font-size:11px;color:#94a3b8;border-top:1px solid #f1f5f9;padding-top:14px;">Sent Monday mornings · Delta Cleaning Operations Hub</p>
       </div>
@@ -71,7 +73,7 @@ export async function GET(request: Request) {
 
   const { data: jobs } = await db
     .from('job_assignments')
-    .select('scheduled_date, status, clients(business_name), client_sites(site_name)')
+    .select('scheduled_date, status, clients(business_name), client_sites(site_name), profiles(full_name)')
     .gte('scheduled_date', weekAgo)
     .lt('scheduled_date', today)
     .order('scheduled_date', { ascending: true })
@@ -79,7 +81,7 @@ export async function GET(request: Request) {
   const toItem = (j: any) => {
     const site = j.client_sites?.site_name
     const name = j.clients?.business_name ?? 'A client'
-    return { label: site ? `${name} — ${site}` : name, date: j.scheduled_date }
+    return { label: site ? `${name} — ${site}` : name, date: j.scheduled_date, cleaner: j.profiles?.full_name ?? null }
   }
   const completed = (jobs ?? []).filter((j: any) => j.status === 'completed').map(toItem)
   const open      = (jobs ?? []).filter((j: any) => j.status !== 'completed').map(toItem)
