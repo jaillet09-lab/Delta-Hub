@@ -56,9 +56,9 @@ function buildHtml(opts: {
         </tr></table>
         ${section('Started, not finished', '#f59e0b', '#b45309', '#fffbeb', '#fde68a', opts.started)}
         ${section('Never started', '#ef4444', '#b91c1c', '#fef2f2', '#fecaca', opts.notStarted)}
+        <a href="${opts.appUrl}/manager/dashboard" style="display:inline-block;margin:6px 0 22px;background:#0b1320;color:#fff;text-decoration:none;font-size:14px;font-weight:700;border-radius:10px;padding:12px 22px;">Open the manager dashboard →</a>
         ${section('Completed', '#16a34a', '#15803d', '#f0fdf4', '#bbf7d0', opts.completed)}
-        <a href="${opts.appUrl}/manager/dashboard" style="display:inline-block;margin-top:6px;background:#0b1320;color:#fff;text-decoration:none;font-size:14px;font-weight:700;border-radius:10px;padding:12px 22px;">Open the manager dashboard →</a>
-        <p style="margin:22px 0 0;font-size:11px;color:#94a3b8;border-top:1px solid #f1f5f9;padding-top:14px;">Sent Monday mornings · Delta Cleaning Operations Hub</p>
+        <p style="margin:10px 0 0;font-size:11px;color:#94a3b8;border-top:1px solid #f1f5f9;padding-top:14px;">Sent Monday mornings · Delta Cleaning Operations Hub</p>
       </div>
     </div>`
 }
