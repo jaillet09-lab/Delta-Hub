@@ -72,7 +72,7 @@ export function SubcontractorPanel({ sub }: { sub: Sub | null }) {
             </span>
           </div>
           <div className="flex items-center gap-3 pt-1">
-            {shownLink && <a href={shownLink} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-xs font-semibold text-[#1e3a5f] hover:underline"><ExternalLink className="w-3.5 h-3.5" /> Open signed pack</a>}
+            {shownLink && <a href={shownLink} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-xs font-semibold text-[#1e3a5f] hover:underline"><ExternalLink className="w-3.5 h-3.5" /> View signed documents</a>}
           </div>
         </div>
       ) : (
