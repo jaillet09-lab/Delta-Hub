@@ -36,7 +36,7 @@ function section(title: string, dot: string, textColor: string, bg: string, bord
 }
 
 function buildHtml(opts: {
-  name: string; period: string; appUrl: string;
+  name: string; period: string;
   started: Item[]; notStarted: Item[]; completed: Item[];
 }): string {
   const card = (n: number, label: string, color: string, bg: string) =>
@@ -56,7 +56,6 @@ function buildHtml(opts: {
         </tr></table>
         ${section('Started, not finished', '#f59e0b', '#b45309', '#fffbeb', '#fde68a', opts.started)}
         ${section('Never started', '#ef4444', '#b91c1c', '#fef2f2', '#fecaca', opts.notStarted)}
-        <a href="${opts.appUrl}/manager/dashboard" style="display:inline-block;margin:6px 0 22px;background:#0b1320;color:#fff;text-decoration:none;font-size:14px;font-weight:700;border-radius:10px;padding:12px 22px;">Open the manager dashboard →</a>
         ${section('Completed', '#16a34a', '#15803d', '#f0fdf4', '#bbf7d0', opts.completed)}
         <p style="margin:10px 0 0;font-size:11px;color:#94a3b8;border-top:1px solid #f1f5f9;padding-top:14px;">Sent Monday mornings · Delta Cleaning Operations Hub</p>
       </div>
@@ -75,7 +74,6 @@ export async function GET(request: Request) {
   const db = createAdminClient() as any
   const today   = brisbaneDate(0)
   const weekAgo = brisbaneDate(-7)
-  const appUrl  = process.env.NEXT_PUBLIC_APP_URL ?? 'https://portal.deltacleaning.com.au'
 
   const { data: jobs } = await db
     .from('job_assignments')
@@ -111,7 +109,7 @@ export async function GET(request: Request) {
   let sent = 0
   const failures: string[] = []
   for (const r of recipients) {
-    const html = buildHtml({ name: r.name, period, appUrl, started, notStarted, completed })
+    const html = buildHtml({ name: r.name, period, started, notStarted, completed })
     const subject = `${testTo ? '[Test] ' : ''}Weekly report — ${period}`
     const res = await sendEmail(r.email, subject, html)
     if (res.success) sent++
