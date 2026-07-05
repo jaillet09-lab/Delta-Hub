@@ -26,13 +26,16 @@ function fmtRange(a: string, b: string): string {
 
 interface Item { label: string; date: string; cleaner: string | null }
 
-function section(title: string, dot: string, textColor: string, bg: string, border: string, items: Item[]): string {
+function section(title: string, dot: string, textColor: string, bg: string, border: string, items: Item[], boxed = true): string {
   if (!items.length) return ''
   const rows = items.map((it) =>
     `<div style="line-height:1.85;"><span style="display:inline-block;width:6px;height:6px;border-radius:50%;background:${dot};vertical-align:middle;margin-right:8px;"></span>${it.label}<span style="color:#94a3b8;"> · ${fmt(it.date)} · ${it.cleaner ?? 'unassigned'}</span></div>`
   ).join('')
-  return `<p style="margin:0 0 6px;font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:${textColor};">${title} · ${items.length}</p>` +
-    `<div style="background:${bg};border:1px solid ${border};border-radius:10px;padding:12px 14px;font-size:13px;color:#334155;margin-bottom:14px;">${rows}</div>`
+  const label = `<p style="margin:0 0 6px;font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:${textColor};">${title} · ${items.length}</p>`
+  const body = boxed
+    ? `<div style="background:${bg};border:1px solid ${border};border-radius:10px;padding:12px 14px;font-size:13px;color:#334155;margin-bottom:14px;">${rows}</div>`
+    : `<div style="font-size:13px;color:#334155;margin-bottom:8px;">${rows}</div>`
+  return label + body
 }
 
 function buildHtml(opts: {
@@ -56,7 +59,7 @@ function buildHtml(opts: {
         </tr></table>
         ${section('Started, not finished', '#f59e0b', '#b45309', '#fffbeb', '#fde68a', opts.started)}
         ${section('Never started', '#ef4444', '#b91c1c', '#fef2f2', '#fecaca', opts.notStarted)}
-        ${section('Completed', '#16a34a', '#15803d', '#f0fdf4', '#bbf7d0', opts.completed)}
+        ${section('Completed', '#16a34a', '#15803d', '#f0fdf4', '#bbf7d0', opts.completed, false)}
         <p style="margin:10px 0 0;font-size:11px;color:#94a3b8;border-top:1px solid #f1f5f9;padding-top:14px;">Sent Monday mornings · Delta Cleaning Operations Hub</p>
       </div>
     </div>`
