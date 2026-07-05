@@ -9,6 +9,7 @@ const PUBLIC_ROUTES = [
   '/cleaner/login',
   '/client/login',
   '/api/cleaner-calendar',
+  '/api/cron',
   '/survey',
   '/sign',
   '/onboard',
