@@ -241,7 +241,11 @@ export async function uploadJobPhotoAction(jobId: string, formData: FormData) {
 
 // ─── Start a clean for a client (creates job + marks in_progress) ────────────
 
-export async function startCleanForClientAction(clientId: string, siteId?: string | null) {
+export async function startCleanForClientAction(
+  clientId: string,
+  siteId?: string | null,
+  location?: { lat: number; lng: number; distanceM: number | null } | null,
+) {
   const supabase = createClient()
   const profile = await getCurrentProfile()
   if (!profile) return { error: 'Not authenticated' }
@@ -326,11 +330,15 @@ export async function startCleanForClientAction(clientId: string, siteId?: strin
     .update({ status: 'in_progress' })
     .eq('id', jobId)
 
-  // Upsert submission with started_at
+  // Upsert submission with started_at + (best-effort) start location. Location is
+  // recorded for verification only — it never affects whether the start succeeds.
   await (supabase as any)
     .from('job_submissions')
     .upsert(
-      { job_id: jobId, cleaner_id: profile.id, started_at: new Date().toISOString() },
+      {
+        job_id: jobId, cleaner_id: profile.id, started_at: new Date().toISOString(),
+        ...(location ? { start_lat: location.lat, start_lng: location.lng, start_distance_m: location.distanceM } : {}),
+      },
       { onConflict: 'job_id' }
     )
 

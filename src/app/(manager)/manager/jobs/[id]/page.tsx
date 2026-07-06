@@ -62,6 +62,17 @@ export default async function ManagerJobDetailPage({ params }: { params: { id: s
   const startedAt = submission?.started_at ?? null
   const completedAt = submission?.completed_at ?? submission?.submitted_at ?? null
 
+  // Where the clean was started (recorded, never enforced). Flag off-site starts.
+  const startDist: number | null = submission?.start_distance_m ?? null
+  const startLat = submission?.start_lat ?? null
+  const startLng = submission?.start_lng ?? null
+  const startLoc =
+    startDist != null
+      ? (startDist <= 250 ? { label: 'On site', cls: 'text-emerald-600' }
+        : startDist <= 1000 ? { label: `${startDist} m from site`, cls: 'text-amber-600' }
+        : { label: `${(startDist / 1000).toFixed(1)} km from site`, cls: 'text-red-600' })
+      : (startLat != null ? { label: 'Location recorded', cls: 'text-gray-400' } : null)
+
   let durationMin: number | null = null
   if (startedAt && completedAt && cleanerCompleted) {
     durationMin = Math.round(
@@ -143,8 +154,8 @@ export default async function ManagerJobDetailPage({ params }: { params: { id: s
         </div>
       )}
 
-      {/* Timing — only shown for cleaner submissions */}
-      {cleanerCompleted && (startedAt || completedAt) && (
+      {/* Timing + start location */}
+      {(startedAt || completedAt) && (
         <div className="bg-white rounded-2xl px-5 py-4 mb-4">
           <p className="text-xs font-semibold text-gray-400 uppercase tracking-widest mb-3">Timing</p>
           <div className="flex gap-6 flex-wrap">
@@ -152,6 +163,11 @@ export default async function ManagerJobDetailPage({ params }: { params: { id: s
               <div>
                 <p className="text-xs text-gray-400 mb-0.5">Started</p>
                 <p className="text-sm font-semibold text-black">{formatBrisbaneTime(startedAt)}</p>
+                {startLoc && (
+                  startLat != null
+                    ? <a href={`https://maps.google.com/?q=${startLat},${startLng}`} target="_blank" rel="noreferrer" className={`text-[11px] mt-0.5 inline-block hover:underline ${startLoc.cls}`}>{startLoc.label}</a>
+                    : <p className={`text-[11px] mt-0.5 ${startLoc.cls}`}>{startLoc.label}</p>
+                )}
               </div>
             )}
             {completedAt && (

@@ -35,23 +35,20 @@ async function geocode(q: string) {
 
 function getGPS(): Promise<GeolocationPosition> {
   return new Promise((res, rej) =>
-    navigator.geolocation.getCurrentPosition(res, rej, { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 })
+    navigator.geolocation.getCurrentPosition(res, rej, { enableHighAccuracy: true, timeout: 6000, maximumAge: 30000 })
   )
 }
 
-type Step = 'idle' | 'locating' | 'geocoding' | 'starting' | 'error'
+type Step = 'idle' | 'starting' | 'error'
 
 export function StartCleanButton({ clientId, address, suburb, label: customLabel, siteId }: Props) {
   const router = useRouter()
-  const [step, setStep]   = useState<Step>('idle')
-  const [err,  setErr]    = useState<string | null>(null)
+  const [step, setStep] = useState<Step>('idle')
+  const [err,  setErr]  = useState<string | null>(null)
 
-  // Calls the server action with a hard guard so the button can never hang on
-  // "Starting…": any thrown/timed-out error surfaces and resets the button.
-  async function runStart() {
-    setStep('starting')
+  async function runStart(location: { lat: number; lng: number; distanceM: number | null } | null) {
     try {
-      const r = await startCleanForClientAction(clientId, siteId ?? null)
+      const r = await startCleanForClientAction(clientId, siteId ?? null, location)
       if (r?.error) { setErr(r.error); setStep('error') } else { router.refresh() }
     } catch {
       setErr('Could not start the clean. Check your connection and try again.')
@@ -59,52 +56,44 @@ export function StartCleanButton({ clientId, address, suburb, label: customLabel
     }
   }
 
+  // Capture where they started (best-effort) and how far from the site — this NEVER
+  // blocks the start. If GPS is denied, slow, or the address can't be geocoded, we
+  // simply start without it. The distance is recorded so the office can see off-site
+  // starts, not to stop a cleaner getting to work.
   async function handleStart() {
     setErr(null)
+    setStep('starting')
 
-    // No address stored — skip location check
-    if (!address && !suburb) { await runStart(); return }
+    let location: { lat: number; lng: number; distanceM: number | null } | null = null
+    try {
+      const [gps, coords] = await Promise.all([
+        getGPS().catch(() => null),
+        (address || suburb)
+          ? (async () => {
+              for (const q of [
+                address && suburb ? `${address}, ${suburb}, Queensland, Australia` : '',
+                suburb ? `${suburb}, Queensland, Australia` : '',
+              ].filter(Boolean)) {
+                const c = await geocode(q); if (c) return c
+              }
+              return null
+            })()
+          : Promise.resolve(null),
+      ])
+      if (gps) {
+        const distanceM = coords
+          ? Math.round(haversineKm(gps.coords.latitude, gps.coords.longitude, coords.lat, coords.lon) * 1000)
+          : null
+        location = { lat: gps.coords.latitude, lng: gps.coords.longitude, distanceM }
+      }
+    } catch { /* ignore — never block the start on a location problem */ }
 
-    // 1. GPS
-    setStep('locating')
-    let pos: GeolocationPosition
-    try { pos = await getGPS() } catch (e: any) {
-      setErr(e?.code === 1
-        ? 'Location access denied. Allow location in your browser settings.'
-        : 'Could not get your location. Check GPS and try again.')
-      setStep('error'); return
-    }
-
-    // 2. Geocode
-    setStep('geocoding')
-    let coords: { lat: number; lon: number } | null = null
-    for (const q of [
-      address && suburb ? `${address}, ${suburb}, Queensland, Australia` : '',
-      suburb ? `${suburb}, Queensland, Australia` : '',
-    ].filter(Boolean)) {
-      coords = await geocode(q); if (coords) break
-    }
-
-    // Can't geocode — let them through
-    if (!coords) { await runStart(); return }
-
-    // 3. Distance check — 1 km with address, 3 km suburb only
-    const dist   = haversineKm(pos.coords.latitude, pos.coords.longitude, coords.lat, coords.lon)
-    const radius = address ? 1 : 3
-
-    if (dist > radius) {
-      const distStr = dist < 1 ? `${Math.round(dist * 1000)} m` : `${dist.toFixed(1)} km`
-      setErr(`You must be within ${radius} km of the client to start. You are ${distStr} away.`)
-      setStep('error'); return
-    }
-
-    // 4. Start
-    await runStart()
+    await runStart(location)
   }
 
-  const busy = step === 'locating' || step === 'geocoding' || step === 'starting'
+  const busy = step === 'starting'
   const idleLabel = customLabel ?? 'Start Clean'
-  const label = { idle: idleLabel, locating: 'Getting location…', geocoding: 'Checking address…', starting: 'Starting…', error: idleLabel }[step]
+  const label = busy ? 'Starting…' : idleLabel
 
   return (
     <div className="space-y-2">
@@ -123,7 +112,7 @@ export function StartCleanButton({ clientId, address, suburb, label: customLabel
         {label}
       </button>
       {step === 'idle' && (address || suburb) && (
-        <p className="text-[11px] text-center text-gray-400">Must be on-site to start</p>
+        <p className="text-[11px] text-center text-gray-400">Tap when you arrive — your location is noted on start</p>
       )}
     </div>
   )
