@@ -2,6 +2,7 @@ import type { CSSProperties } from 'react'
 import type { Swms, Policy } from '@/lib/documents/safety'
 import { MODERN_SLAVERY, SDS_REGISTER, DOC_CONTROL, COMPANY, LEGISLATION, REVIEW_TRIGGERS, EMERGENCY_CONTACTS } from '@/lib/documents/safety'
 import { SUBCONTRACTOR_AGREEMENT, CONTRACTOR_INDUCTION } from '@/lib/documents/subcontractor'
+import { MASTER_TERMS } from '@/lib/documents/terms'
 import type { SignatureFill } from '@/components/documents/render/AgreementDocument'
 
 const NAVY = '#0F172A'
@@ -276,6 +277,33 @@ export function InductionDocument({ signature }: { signature?: SubbieSignature |
           {ind.acknowledgment}
         </div>
         <StampedSignOff label="Acknowledged by" sig={signature} />
+        <Footer />
+      </section>
+    </div>
+  )
+}
+
+export function TermsDocument({ hideSignoff }: { hideSignoff?: boolean }) {
+  const t = MASTER_TERMS
+  return (
+    <div data-doc-root>
+      <section data-sheet style={page}>
+        <Header docNo={t.code} />
+        <DocControl docNo={t.code} />
+        <div style={eyebrow}>Terms &amp; Conditions</div>
+        <h1 style={{ fontFamily: DISPLAY, fontWeight: 700, fontSize: 30, lineHeight: 1.05, letterSpacing: '-.02em', margin: '0 0 12px' }}>{t.title}</h1>
+        <p style={{ fontSize: 13, lineHeight: 1.65, color: '#475569', margin: '0 0 22px', maxWidth: 640 }}>{t.intro}</p>
+        {t.clauses.map((c) => (
+          <div key={c.n} style={{ display: 'grid', gridTemplateColumns: '30px 1fr', gap: 12, marginBottom: 13 }}>
+            <div style={{ fontFamily: MONO, fontSize: 12, color: NAVY, paddingTop: 1 }}>{c.n}</div>
+            <div>
+              <div style={{ fontFamily: DISPLAY, fontWeight: 600, fontSize: 14.5, marginBottom: 4 }}>{c.title}</div>
+              <p style={{ fontSize: 12.4, lineHeight: 1.55, color: '#475569', margin: 0 }}>{c.body}</p>
+            </div>
+          </div>
+        ))}
+        <Legislation />
+        {!hideSignoff && <AuthorisedBy />}
         <Footer />
       </section>
     </div>

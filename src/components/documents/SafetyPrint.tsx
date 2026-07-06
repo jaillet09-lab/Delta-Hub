@@ -1,13 +1,13 @@
 'use client'
 
-import { SwmsDocument, ModernSlaveryDocument, SdsRegisterDocument, PolicyDocument, SubcontractorAgreementDocument, InductionDocument } from '@/components/documents/render/SwmsDocument'
+import { SwmsDocument, ModernSlaveryDocument, SdsRegisterDocument, PolicyDocument, SubcontractorAgreementDocument, InductionDocument, TermsDocument } from '@/components/documents/render/SwmsDocument'
 import type { Swms, Policy } from '@/lib/documents/safety'
 
 // Printable view for any Safety & Compliance document — A4 rules + a screen-only
 // "Download PDF" button (browser print-to-PDF).
 // viewOnly: client-facing mode — hides the Download button and blocks print/save,
 // so clients and subcontractors can read the docs but not download them.
-export function SafetyPrint({ swms, policy, sds, agreement, induction, viewOnly }: { swms?: Swms; policy?: Policy; sds?: boolean; agreement?: boolean; induction?: boolean; viewOnly?: boolean }) {
+export function SafetyPrint({ swms, policy, sds, agreement, induction, terms, viewOnly }: { swms?: Swms; policy?: Policy; sds?: boolean; agreement?: boolean; induction?: boolean; terms?: boolean; viewOnly?: boolean }) {
   return (
     <>
       <style>{`
@@ -35,6 +35,7 @@ export function SafetyPrint({ swms, policy, sds, agreement, induction, viewOnly 
           : policy ? <PolicyDocument policy={policy} hideSignoff={viewOnly} />
           : agreement ? <SubcontractorAgreementDocument />
           : induction ? <InductionDocument />
+          : terms ? <TermsDocument hideSignoff={viewOnly} />
           : sds ? <SdsRegisterDocument />
           : <ModernSlaveryDocument hideSignoff={viewOnly} />}
       </div>

@@ -2,6 +2,7 @@ import Link from 'next/link'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { SWMS_LIST, MODERN_SLAVERY, SDS_REGISTER, POLICIES } from '@/lib/documents/safety'
 import { SUBCONTRACTOR_AGREEMENT, CONTRACTOR_INDUCTION } from '@/lib/documents/subcontractor'
+import { MASTER_TERMS } from '@/lib/documents/terms'
 import { SubcontractorPanel } from '@/components/clients/SubcontractorPanel'
 import { ShieldCheck, FileText, ChevronRight, HardHat, FlaskConical, UserCheck, FileSignature, ExternalLink } from 'lucide-react'
 
@@ -105,6 +106,20 @@ export default async function SafetyPage() {
               <div className="min-w-0">
                 <p className="text-sm font-semibold text-gray-900 truncate">{SDS_REGISTER.title}</p>
                 <p className="text-xs text-gray-400">{SDS_REGISTER.products.length} products · SDS on the cleaner portal</p>
+              </div>
+            </div>
+            <ChevronRight className="w-4 h-4 text-gray-300 flex-shrink-0" />
+          </div>
+        </Link>
+        <Link href="/safety/terms-and-conditions" target="_blank" className="block">
+          <div className="bg-white rounded-2xl border border-gray-200 shadow-sm px-5 py-4 flex items-center justify-between gap-3 hover:border-gray-300 transition-colors">
+            <div className="flex items-center gap-3 min-w-0">
+              <div className="w-9 h-9 rounded-xl bg-[#1e3a5f]/5 border border-[#1e3a5f]/10 flex items-center justify-center flex-shrink-0">
+                <FileSignature className="w-4 h-4 text-[#1e3a5f]" />
+              </div>
+              <div className="min-w-0">
+                <p className="text-sm font-semibold text-gray-900 truncate">{MASTER_TERMS.title}</p>
+                <p className="text-xs text-gray-400">Standard client terms · {MASTER_TERMS.code}</p>
               </div>
             </div>
             <ChevronRight className="w-4 h-4 text-gray-300 flex-shrink-0" />

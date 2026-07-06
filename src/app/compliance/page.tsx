@@ -1,5 +1,6 @@
 import Link from 'next/link'
 import { SWMS_LIST, POLICIES, MODERN_SLAVERY, SDS_REGISTER, COMPANY, LEGISLATION } from '@/lib/documents/safety'
+import { MASTER_TERMS } from '@/lib/documents/terms'
 import { ShieldCheck, HardHat, FileText, FlaskConical, BadgeCheck, ClipboardCheck, Phone, Mail, ChevronRight, Lock } from 'lucide-react'
 
 export const dynamic = 'force-dynamic'
@@ -53,7 +54,7 @@ export default function CompliancePackPage() {
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 mb-2">
           {[
             { icon: BadgeCheck, label: 'ABN registered' },
-            { icon: ShieldCheck, label: 'Public Liability insured' },
+            { icon: ShieldCheck, label: '$20M Public Liability' },
             { icon: HardHat, label: 'WHS-aligned' },
             { icon: ClipboardCheck, label: 'Inducted team' },
           ].map((t) => (
@@ -71,7 +72,7 @@ export default function CompliancePackPage() {
             ['Registered business', COMPANY.name],
             ['ABN', COMPANY.abn],
             ['Location', COMPANY.location],
-            ['Public Liability insurance', `In place · Policy ${INSURANCE_POLICY}`],
+            ['Public Liability insurance', `$20 million · Policy ${INSURANCE_POLICY}`],
             ['Certificate of Currency', 'Available on request'],
           ].map(([k, v]) => (
             <div key={k} className="flex items-center justify-between gap-4 px-5 py-3.5">
@@ -98,6 +99,12 @@ export default function CompliancePackPage() {
           ))}
           <DocRow href="/compliance/modern-slavery" title={MODERN_SLAVERY.title} sub="Policy statement" Icon={FileText} />
           <DocRow href="/compliance/sds-register" title={SDS_REGISTER.title} sub={`${SDS_REGISTER.products.length} products · chemical safety`} Icon={FlaskConical} />
+        </div>
+
+        {/* Service terms */}
+        <SectionLabel icon={FileText}>Service terms</SectionLabel>
+        <div className="space-y-2">
+          <DocRow href={`/compliance/${MASTER_TERMS.slug}`} title="Terms &amp; Conditions" sub={`The standard terms that apply to every engagement · ${MASTER_TERMS.code}`} Icon={FileText} />
         </div>
 
         {/* Team */}

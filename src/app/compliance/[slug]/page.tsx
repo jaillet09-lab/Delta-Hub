@@ -13,6 +13,7 @@ export default function PublicComplianceDocPage({ params }: { params: { slug: st
   const { slug } = params
   if (slug === 'modern-slavery') return <SafetyPrint viewOnly />
   if (slug === 'sds-register') return <SafetyPrint sds viewOnly />
+  if (slug === 'terms-and-conditions') return <SafetyPrint terms viewOnly />
   const policy = findPolicy(slug)
   if (policy) return <SafetyPrint policy={policy} viewOnly />
   const swms = findSwms(slug)
