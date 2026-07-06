@@ -3,16 +3,21 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { SWMS_LIST, MODERN_SLAVERY, SDS_REGISTER, POLICIES } from '@/lib/documents/safety'
 import { SUBCONTRACTOR_AGREEMENT, CONTRACTOR_INDUCTION } from '@/lib/documents/subcontractor'
 import { SubcontractorPanel } from '@/components/clients/SubcontractorPanel'
+import { CertificationsPanel } from '@/components/compliance/CertificationsPanel'
 import { ShieldCheck, FileText, ChevronRight, HardHat, FlaskConical, UserCheck, FileSignature } from 'lucide-react'
 
 export const dynamic = 'force-dynamic'
 
 export default async function SafetyPage() {
   const db = createAdminClient() as any
-  const { data: sub } = await db
-    .from('subcontractors')
-    .select('company_name, abn, contact_name, contact_email, insurance_expiry, sign_code, signed_at, signed_name')
-    .order('created_at', { ascending: false }).limit(1).maybeSingle()
+  const [{ data: sub }, { data: certs }] = await Promise.all([
+    db.from('subcontractors')
+      .select('company_name, abn, contact_name, contact_email, insurance_expiry, sign_code, signed_at, signed_name')
+      .order('created_at', { ascending: false }).limit(1).maybeSingle(),
+    db.from('certifications')
+      .select('id, name, category, holder, issuer, reference, issue_date, expiry_date, file_url, notes')
+      .order('expiry_date', { ascending: true, nullsFirst: false }),
+  ])
 
   return (
     <div className="max-w-3xl mx-auto">
@@ -22,6 +27,8 @@ export default async function SafetyPage() {
       </div>
 
       <SubcontractorPanel sub={sub ?? null} />
+
+      <CertificationsPanel certs={(certs ?? []) as any} />
 
       {/* SWMS */}
       <div className="flex items-center gap-2 mb-3">
