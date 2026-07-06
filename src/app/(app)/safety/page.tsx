@@ -3,7 +3,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { SWMS_LIST, MODERN_SLAVERY, SDS_REGISTER, POLICIES } from '@/lib/documents/safety'
 import { SUBCONTRACTOR_AGREEMENT, CONTRACTOR_INDUCTION } from '@/lib/documents/subcontractor'
 import { SubcontractorPanel } from '@/components/clients/SubcontractorPanel'
-import { ShieldCheck, FileText, ChevronRight, HardHat, FlaskConical, UserCheck, FileSignature } from 'lucide-react'
+import { ShieldCheck, FileText, ChevronRight, HardHat, FlaskConical, UserCheck, FileSignature, ExternalLink } from 'lucide-react'
 
 export const dynamic = 'force-dynamic'
 
@@ -20,6 +20,16 @@ export default async function SafetyPage() {
         <h2 className="font-display text-2xl font-extrabold tracking-tight text-gray-900">Safety &amp; compliance</h2>
         <p className="text-sm text-gray-400 mt-0.5">Safe Work Method Statements and policies — view, print, or share with clients and auditors.</p>
       </div>
+
+      <Link href="/compliance" target="_blank" className="block mb-6 bg-[#0b1320] rounded-2xl px-5 py-4 hover:opacity-95 transition-opacity">
+        <div className="flex items-center justify-between gap-3">
+          <div className="min-w-0">
+            <p className="text-white text-sm font-semibold">Shareable compliance pack</p>
+            <p className="text-slate-400 text-xs mt-0.5">Send a prospect <span className="text-slate-300">portal.deltacleaning.com.au/compliance</span> to show your insurance, SWMS &amp; policies before they sign.</p>
+          </div>
+          <span className="inline-flex items-center gap-1 text-xs font-semibold text-white border border-white/20 rounded-lg px-3 py-2 flex-shrink-0">Open <ExternalLink className="w-3.5 h-3.5" /></span>
+        </div>
+      </Link>
 
       <SubcontractorPanel sub={sub ?? null} />
 
