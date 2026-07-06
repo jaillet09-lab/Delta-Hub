@@ -203,7 +203,7 @@ export function ProposalDocument({ data }: { data: ProposalData }) {
           {[['01', 'Every clean tracked', 'Each visit is logged and time stamped, with photo verification on periodic and detail tasks, so you can see what was completed.'],
             ['02', 'A real feedback loop', 'Raise a request or flag anything from the portal. It reaches us right away and is actioned at the next service.'],
             ['03', 'Clear monthly reports', 'A simple monthly summary of completed work, periodic tasks and anything raised, ready to share with your team.'],
-            ['04', 'Always in the loop', 'The portal sits alongside a direct line to Jackson, so you&apos;re never far from an answer.']].map(([n, t, d]) => (
+            ['04', 'Always in the loop', 'The portal sits alongside a direct line to Jackson, so you’re never far from an answer.']].map(([n, t, d]) => (
             <div key={n} style={{ border: '1px solid #EEF2F6', borderRadius: 12, padding: 26 }}>
               <div style={{ fontFamily: MONO, fontSize: 11, color: '#94A3B8', marginBottom: 14 }}>{n}</div>
               <div style={{ fontFamily: DISPLAY, fontWeight: 600, fontSize: 17, marginBottom: 8 }}>{t}</div>
