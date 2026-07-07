@@ -123,6 +123,9 @@ export function ProposalDocument({ data }: { data: ProposalData }) {
                   <span key={c} style={{ fontSize: 11.5, fontWeight: 500, border: '1px solid #CBD5E1', borderRadius: 999, padding: '5px 12px', color: '#334155', whiteSpace: 'nowrap' }}>{c}</span>
                 ))}
               </div>
+              <a href="https://portal.deltacleaning.com.au/compliance" style={{ display: 'block', marginTop: 14, fontSize: 12.5, fontWeight: 600, color: NAVY, textDecoration: 'none' }}>
+                See our full compliance pack — insurances, SWMS &amp; policies — at <span style={{ textDecoration: 'underline', color: '#334155' }}>portal.deltacleaning.com.au/compliance</span>
+              </a>
             </div>
           </div>
         </div>
