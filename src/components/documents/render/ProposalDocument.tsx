@@ -232,14 +232,14 @@ export function ProposalDocument({ data }: { data: ProposalData }) {
         <div style={{ marginTop: 34, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 18 }}>
           <div style={{ border: '1px solid #EEF2F6', borderTop: `3px solid ${NAVY}`, borderRadius: 12, padding: 26 }}>
             <div style={{ fontFamily: DISPLAY, fontWeight: 600, fontSize: 19, marginBottom: 8 }}>Window cleaning</div>
-            <p style={{ margin: '0 0 14px', fontSize: 13.5, lineHeight: 1.62, color: '#64748B' }}>Streak-free glass inside and out — entries, partitions, shopfronts and reachable exterior windows, with high dusting of frames and sills. Scheduled on a regular cycle or booked as a one-off.</p>
+            <p style={{ margin: '0 0 14px', fontSize: 13.5, lineHeight: 1.62, color: '#64748B' }}>Streak-free glass inside and out: entries, partitions, shopfronts and reachable exterior windows, plus high dusting of frames and sills. Scheduled or one-off.</p>
             <ul style={{ margin: 0, padding: 0, listStyle: 'none', display: 'flex', flexDirection: 'column', gap: 7 }}>
               {['Internal & external glass', 'Entry doors, partitions & shopfronts', 'High dusting of frames, sills & ledges'].map((t, i) => <Bullet key={i}>{t}</Bullet>)}
             </ul>
           </div>
           <div style={{ border: '1px solid #EEF2F6', borderTop: `3px solid ${NAVY}`, borderRadius: 12, padding: 26 }}>
             <div style={{ fontFamily: DISPLAY, fontWeight: 600, fontSize: 19, marginBottom: 8 }}>Floor care programs</div>
-            <p style={{ margin: '0 0 14px', fontSize: 13.5, lineHeight: 1.62, color: '#64748B' }}>Our floor-care specialist builds a tailored floor plan for your site, matched to what you actually have on the ground — carpet, vinyl and concrete — so each surface is maintained the right way, on the right cycle.</p>
+            <p style={{ margin: '0 0 14px', fontSize: 13.5, lineHeight: 1.62, color: '#64748B' }}>Our floor-care specialist builds a plan for your site&apos;s surfaces, so carpet, vinyl and concrete are each maintained the right way, on the right cycle.</p>
             <ul style={{ margin: 0, padding: 0, listStyle: 'none', display: 'flex', flexDirection: 'column', gap: 7 }}>
               {['Carpet: deep clean & hot-water steam extraction', 'Vinyl: strip, deep clean, re-seal & polish', 'Concrete: pressure washing & hard-floor scrubbing'].map((t, i) => <Bullet key={i}>{t}</Bullet>)}
             </ul>
@@ -258,32 +258,39 @@ export function ProposalDocument({ data }: { data: ProposalData }) {
             ))}
           </div>
         </div>
-        <div style={{ marginTop: 22, background: NAVY, borderRadius: 12, padding: '24px 30px', color: '#fff' }}>
-          <p style={{ margin: 0, fontSize: 13.5, lineHeight: 1.62, color: '#CBD5E1', maxWidth: 640 }}>Windows, floor programs and periodic detail work are quoted separately from your scheduled clean, so you only pay for them when you book them. You never have to source or manage another contractor to get them done.</p>
-        </div>
         <Footer n="06" />
       </section>
 
       {/* ── 7 · Scope of Services (editable, paginated so it never clips) ── */}
       {(() => {
         const groups = data.scopeGroups ?? []
-        const cost = (g: { items: string[] }) => 2 + g.items.length
-        const total = groups.reduce((s, g) => s + cost(g), 0)
-        // Short scope stays on one page; long scope splits across A4 pages so a
-        // fixed-height sheet never overflows and clips.
-        const pages: (typeof groups)[] = []
-        if (total <= 30) {
-          pages.push(groups)
-        } else {
-          let curr: typeof groups = []
-          let c = 0
-          groups.forEach((g) => {
-            const budget = pages.length === 0 ? 24 : 36  // page 1 also carries the intro
-            if (curr.length && c + cost(g) > budget) { pages.push(curr); curr = []; c = 0 }
-            curr.push(g); c += cost(g)
-          })
-          if (curr.length) pages.push(curr)
+        // Estimate each group's height in "line units" (header ≈ 2, plus each
+        // inclusion counts the number of lines it wraps to at the scope column
+        // width), then lay the 2-column grid out row by row taking the taller of
+        // each pair. This means a page can never silently overflow — long, wordy
+        // scopes (like a multi-site aged-care brief) paginate cleanly instead of
+        // spilling onto a half-empty extra page.
+        const CHARS_PER_LINE = 42
+        const groupUnits = (g: { items: string[] }) =>
+          2 + (g.items ?? []).reduce((n, it) => n + Math.max(1, Math.ceil((it || '').length / CHARS_PER_LINE)), 0)
+        const packHeight = (gs: typeof groups) => {
+          let h = 0
+          for (let i = 0; i < gs.length; i += 2) {
+            const a = groupUnits(gs[i])
+            const b = i + 1 < gs.length ? groupUnits(gs[i + 1]) : 0
+            h += Math.max(a, b) + 1   // taller of the pair, plus a row gap
+          }
+          return h
         }
+        const pages: (typeof groups)[] = []
+        let curr: typeof groups = []
+        groups.forEach((g) => {
+          const cap = pages.length === 0 ? 36 : 46   // page 1 also carries the intro
+          if (curr.length && packHeight([...curr, g]) > cap) { pages.push(curr); curr = [] }
+          curr.push(g)
+        })
+        if (curr.length) pages.push(curr)
+        if (pages.length === 0) pages.push([])
         return pages.map((pg, pi) => {
           const isFirst = pi === 0
           const isLast  = pi === pages.length - 1
