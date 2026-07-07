@@ -394,7 +394,7 @@ export function ProposalDocument({ data }: { data: ProposalData }) {
           <H2 size={34}>Terms &amp; next steps.</H2>
         </div>
         <div style={{ marginTop: 28, display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 14 }}>
-          {[['Payment terms', 'Invoiced by email each service cycle, due within 7 days. A 10% late fee applies monthly to overdue invoices.'],
+          {[['Payment terms', 'Invoiced by email each service cycle, due within 7 days. A 5% late fee applies to overdue invoices.'],
             ['Annual price review', "Reviewed annually in line with Queensland CPI, with a minimum 30 days' written notice of any change."],
             ['Cancellation', "Either party may end the agreement with 30 days' written notice after the initial term."],
             ['Site access', 'You provide safe, secure access. Keys, fobs or codes are arranged before we start.'],

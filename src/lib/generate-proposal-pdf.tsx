@@ -101,7 +101,7 @@ const REVIEWS = [
 ]
 
 const TERMS = [
-  { title: 'Payment Terms', body: 'Invoices issued by email following each service cycle, due within 7 days. A 10% late payment fee applies monthly to overdue invoices.' },
+  { title: 'Payment Terms', body: 'Invoices issued by email following each service cycle, due within 7 days. A 5% late fee applies to overdue invoices.' },
   { title: 'Annual Price Review', body: 'Pricing reviewed annually in line with the Queensland CPI. Minimum 30 days written notice prior to any adjustment.' },
   { title: 'Cancellation Policy', body: 'Either party may terminate with 30 days written notice after the initial term. Early cancellation may incur an equivalent one-month service fee.' },
   { title: 'Site Access', body: 'Client responsible for providing safe, secure access. Keys, fobs, or codes must be provided prior to commencement.' },

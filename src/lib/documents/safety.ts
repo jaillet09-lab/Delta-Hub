@@ -31,7 +31,7 @@ export const COMPANY = {
   name: 'Delta Cleaning Pty Ltd',
   abn: '83 303 026 478',
   location: 'Brisbane, QLD',
-  email: 'contact@deltacleaning.com.au',
+  email: 'hello@deltacleaning.com.au',
   web: 'www.deltacleaning.com.au',
   phone: '0412 844 238',
 }
