@@ -8,7 +8,7 @@ const DEFAULT_SETTINGS: AppSettings = {
   business: {
     name:    'Delta Cleaning',
     email:   'hello@deltacleaning.com.au',
-    phone:   '0412 844 237',
+    phone:   '0412 844 238',
     website: 'https://www.deltacleaning.com.au',
     address: 'Brisbane, QLD',
   },

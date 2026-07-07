@@ -47,7 +47,7 @@ export async function sendEmailAction(data: {
       <p style="margin:0 0 2px;font-size:14px;color:#1a1a1a;font-family:Arial,sans-serif;">Best regards,</p>
       <p style="margin:0 0 2px;font-size:14px;font-weight:700;color:#1a1a1a;font-family:Arial,sans-serif;">Jackson Jaillet</p>
       <p style="margin:0 0 1px;font-size:13px;color:#555555;font-family:Arial,sans-serif;">Founder &amp; Director, Delta Cleaning</p>
-      <p style="margin:0 0 1px;font-size:13px;color:#555555;font-family:Arial,sans-serif;">0412 844 237</p>
+      <p style="margin:0 0 1px;font-size:13px;color:#555555;font-family:Arial,sans-serif;">0412 844 238</p>
       <a href="https://www.deltacleaning.com.au" style="font-size:13px;color:#1a56db;text-decoration:none;font-family:Arial,sans-serif;">deltacleaning.com.au</a>
     </div>
 

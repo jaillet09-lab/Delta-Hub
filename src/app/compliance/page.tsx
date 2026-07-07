@@ -7,7 +7,7 @@ export const dynamic = 'force-dynamic'
 
 const INSURANCE_POLICY = 'SPD015763734'
 const CONTACT_EMAIL = 'hello@deltacleaning.com.au'
-const CONTACT_PHONE = '0412 844 237'
+const CONTACT_PHONE = '0412 844 238'
 
 const swmsSlug = (code: string) => code.replace(/\s+/g, '-').toLowerCase()
 

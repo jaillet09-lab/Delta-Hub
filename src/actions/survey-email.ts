@@ -45,7 +45,7 @@ export async function sendSurveyEmailAction(clientId: string): Promise<{ success
 <p>Thanks so much for your time.</p>
 <p style="margin-top:24px;">Jackson Jaillet<br>
 <span style="color:#555;font-size:14px;">Founder &amp; Director, Delta Cleaning</span><br>
-<span style="color:#555;font-size:14px;">0412 844 237</span><br>
+<span style="color:#555;font-size:14px;">0412 844 238</span><br>
 <a href="https://www.deltacleaning.com.au" style="color:#555;font-size:14px;text-decoration:none;">deltacleaning.com.au</a></p>
 </div>
 </body></html>`
@@ -188,7 +188,7 @@ export async function sendSurveyReminderAction(tokenId: string): Promise<{ succe
 <p>Thanks so much — really appreciate it.</p>
 <p style="margin-top:24px;">Jackson Jaillet<br>
 <span style="color:#555;font-size:14px;">Founder &amp; Director, Delta Cleaning</span><br>
-<span style="color:#555;font-size:14px;">0412 844 237</span><br>
+<span style="color:#555;font-size:14px;">0412 844 238</span><br>
 <a href="https://www.deltacleaning.com.au" style="color:#555;font-size:14px;text-decoration:none;">deltacleaning.com.au</a></p>
 </div>
 </body></html>`

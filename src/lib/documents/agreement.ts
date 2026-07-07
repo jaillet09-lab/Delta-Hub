@@ -52,7 +52,7 @@ export const DEFAULT_AGREEMENT: AgreementData = {
   specialConditions: 'Nil',
   contactName: 'Jackson Jaillet',
   contactRole: 'Founder & Director',
-  contactPhone: '+61 412 844 237',
+  contactPhone: '+61 412 844 238',
   contactEmail: 'hello@deltacleaning.com.au',
   scopeGroups: AGREEMENT_SCOPE,
   additionalServices: ['Carpet steam cleaning', 'Hard-floor strip & seal', 'Pressure washing', 'Window cleaning', 'High dusting'],

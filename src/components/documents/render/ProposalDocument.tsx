@@ -105,9 +105,9 @@ export function ProposalDocument({ data }: { data: ProposalData }) {
             <div style={{ display: 'flex', flexDirection: 'column', marginTop: 26 }}>
               {[
                 ['01', 'From the Director', '03'], ['02', 'Why Delta Cleaning', '04'],
-                ['03', 'Your Delta Portal', '05'], ['04', 'Scope of Services', '06'],
-                ['05', 'Investment', '07'], ['06', 'What Our Clients Say', '08'],
-                ['07', 'Terms & Next Steps', '09'],
+                ['03', 'Your Delta Portal', '05'], ['04', 'Specialist Services', '06'],
+                ['05', 'Scope of Services', '07'], ['06', 'Investment', '08'],
+                ['07', 'What Our Clients Say', '09'], ['08', 'Terms & Next Steps', '10'],
               ].map(([n, label, pg], i, arr) => (
                 <div key={n} style={{ display: 'flex', alignItems: 'baseline', gap: 14, padding: '15px 0', borderTop: '1px solid #E2E8F0', borderBottom: i === arr.length - 1 ? '1px solid #E2E8F0' : undefined }}>
                   <span style={{ fontFamily: MONO, fontSize: 12, color: NAVY, width: 24 }}>{n}</span>
@@ -124,7 +124,7 @@ export function ProposalDocument({ data }: { data: ProposalData }) {
                 ))}
               </div>
               <a href="https://portal.deltacleaning.com.au/compliance" style={{ display: 'block', marginTop: 14, fontSize: 12.5, fontWeight: 600, color: NAVY, textDecoration: 'none' }}>
-                See our full compliance pack — insurances, SWMS &amp; policies — at <span style={{ textDecoration: 'underline', color: '#334155' }}>portal.deltacleaning.com.au/compliance</span>
+                See our full compliance pack (insurances, SWMS &amp; policies) at <span style={{ textDecoration: 'underline', color: '#334155' }}>portal.deltacleaning.com.au/compliance</span>
               </a>
             </div>
           </div>
@@ -221,7 +221,50 @@ export function ProposalDocument({ data }: { data: ProposalData }) {
         <Footer n="05" />
       </section>
 
-      {/* ── 6 · Scope of Services (editable, paginated so it never clips) ── */}
+      {/* ── 6 · Specialist Services ── */}
+      <section data-sheet style={page}>
+        <Header label="04 · Specialist Services" />
+        <div style={{ marginTop: 52 }}>
+          <div style={eyebrow}>Beyond the daily clean</div>
+          <H2 size={36} max={620}>Specialist work, kept in-house.</H2>
+          <p style={{ margin: '18px 0 0', fontSize: 15, lineHeight: 1.7, color: '#475569', maxWidth: 640 }}>Alongside your scheduled clean, we handle the specialist jobs most sites have to bring a third party in for. Our own window and floor-care specialists look after it directly, so it&apos;s the same accountable team, booked in around your routine service.</p>
+        </div>
+        <div style={{ marginTop: 34, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 18 }}>
+          <div style={{ border: '1px solid #EEF2F6', borderTop: `3px solid ${NAVY}`, borderRadius: 12, padding: 26 }}>
+            <div style={{ fontFamily: DISPLAY, fontWeight: 600, fontSize: 19, marginBottom: 8 }}>Window cleaning</div>
+            <p style={{ margin: '0 0 14px', fontSize: 13.5, lineHeight: 1.62, color: '#64748B' }}>Streak-free glass inside and out — entries, partitions, shopfronts and reachable exterior windows, with high dusting of frames and sills. Scheduled on a regular cycle or booked as a one-off.</p>
+            <ul style={{ margin: 0, padding: 0, listStyle: 'none', display: 'flex', flexDirection: 'column', gap: 7 }}>
+              {['Internal & external glass', 'Entry doors, partitions & shopfronts', 'High dusting of frames, sills & ledges'].map((t, i) => <Bullet key={i}>{t}</Bullet>)}
+            </ul>
+          </div>
+          <div style={{ border: '1px solid #EEF2F6', borderTop: `3px solid ${NAVY}`, borderRadius: 12, padding: 26 }}>
+            <div style={{ fontFamily: DISPLAY, fontWeight: 600, fontSize: 19, marginBottom: 8 }}>Floor care programs</div>
+            <p style={{ margin: '0 0 14px', fontSize: 13.5, lineHeight: 1.62, color: '#64748B' }}>Our floor-care specialist builds a tailored floor plan for your site, matched to what you actually have on the ground — carpet, vinyl and concrete — so each surface is maintained the right way, on the right cycle.</p>
+            <ul style={{ margin: 0, padding: 0, listStyle: 'none', display: 'flex', flexDirection: 'column', gap: 7 }}>
+              {['Carpet: deep clean & hot-water steam extraction', 'Vinyl: strip, deep clean, re-seal & polish', 'Concrete: pressure washing & hard-floor scrubbing'].map((t, i) => <Bullet key={i}>{t}</Bullet>)}
+            </ul>
+          </div>
+        </div>
+        <div style={{ marginTop: 30 }}>
+          <div style={eyebrow}>How your team is run</div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 14 }}>
+            {[['On-site supervisor', 'Every team has a supervisor on the ground who owns the standard, checks the work and is your first point of contact on site.'],
+              ['Owner oversight', 'Above the supervisor sits Jackson, the owner, across every team and every site, so accountability never stops at the crew.'],
+              ['One accountable chain', 'Cleaner to supervisor to owner. If anything is ever off, there is always a named person responsible for putting it right.']].map(([t, d]) => (
+              <div key={t} style={{ background: '#F8FAFC', border: '1px solid #EEF2F6', borderTop: `3px solid ${NAVY}`, borderRadius: 10, padding: 22 }}>
+                <div style={{ fontFamily: DISPLAY, fontWeight: 600, fontSize: 15.5, marginBottom: 7 }}>{t}</div>
+                <p style={{ margin: 0, fontSize: 12.5, lineHeight: 1.55, color: '#64748B' }}>{d}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+        <div style={{ marginTop: 22, background: NAVY, borderRadius: 12, padding: '24px 30px', color: '#fff' }}>
+          <p style={{ margin: 0, fontSize: 13.5, lineHeight: 1.62, color: '#CBD5E1', maxWidth: 640 }}>Windows, floor programs and periodic detail work are quoted separately from your scheduled clean, so you only pay for them when you book them. You never have to source or manage another contractor to get them done.</p>
+        </div>
+        <Footer n="06" />
+      </section>
+
+      {/* ── 7 · Scope of Services (editable, paginated so it never clips) ── */}
       {(() => {
         const groups = data.scopeGroups ?? []
         const cost = (g: { items: string[] }) => 2 + g.items.length
@@ -246,7 +289,7 @@ export function ProposalDocument({ data }: { data: ProposalData }) {
           const isLast  = pi === pages.length - 1
           return (
             <section key={pi} data-sheet style={page}>
-              <Header label={pages.length > 1 ? `04 · Scope of Services · ${pi + 1}/${pages.length}` : '04 · Scope of Services'} />
+              <Header label={pages.length > 1 ? `05 · Scope of Services · ${pi + 1}/${pages.length}` : '05 · Scope of Services'} />
               {isFirst && (
                 <div style={{ marginTop: 48 }}>
                   <div style={eyebrow}>What&apos;s included</div>
@@ -272,15 +315,15 @@ export function ProposalDocument({ data }: { data: ProposalData }) {
                   </div>
                 </div>
               )}
-              <Footer n="06" />
+              <Footer n="07" />
             </section>
           )
         })
       })()}
 
-      {/* ── 7 · Investment (editable pricing) ── */}
+      {/* ── 8 · Investment (editable pricing) ── */}
       <section data-sheet style={page}>
-        <Header label="05 · Investment" />
+        <Header label="06 · Investment" />
         <div style={{ marginTop: 52 }}>
           <div style={eyebrow}>Your investment</div>
           <H2 size={36}>Investment.</H2>
@@ -306,12 +349,12 @@ export function ProposalDocument({ data }: { data: ProposalData }) {
           <div><div style={{ ...eyebrow, fontSize: 10, marginBottom: 8 }}>Products &amp; equipment</div><p style={{ margin: 0, fontSize: 13, lineHeight: 1.6, color: '#64748B' }}>All cleaning products and equipment are supplied by Delta Cleaning. Safety Data Sheets are available on request at no additional cost.</p></div>
           <div><div style={{ ...eyebrow, fontSize: 10, marginBottom: 8 }}>Please note</div><p style={{ margin: 0, fontSize: 13, lineHeight: 1.6, color: '#64748B' }}>Pricing is held for 30 days from issue. Any site specific requirements or hazards should be shared before we start.</p></div>
         </div>
-        <Footer n="07" />
+        <Footer n="08" />
       </section>
 
-      {/* ── 8 · Testimonials ── */}
+      {/* ── 9 · Testimonials ── */}
       <section data-sheet style={page}>
-        <Header label="06 · What Clients Say" />
+        <Header label="07 · What Clients Say" />
         <div style={{ marginTop: 52 }}>
           <div style={eyebrow}>In their words</div>
           <H2 size={36}>What our clients say.</H2>
@@ -333,12 +376,12 @@ export function ProposalDocument({ data }: { data: ProposalData }) {
           <div style={{ fontFamily: DISPLAY, fontWeight: 600, fontSize: 44, letterSpacing: '-.03em', color: NAVY }}>98%</div>
           <div style={{ fontSize: 14, lineHeight: 1.6, color: '#475569' }}>of our clients stay with us year on year. The clearest sign that the standard we promise is the standard we keep.</div>
         </div>
-        <Footer n="08" />
+        <Footer n="09" />
       </section>
 
-      {/* ── 9 · Terms & Next Steps ── */}
+      {/* ── 10 · Terms & Next Steps ── */}
       <section data-sheet style={page}>
-        <Header label="07 · Terms & Next Steps" />
+        <Header label="08 · Terms & Next Steps" />
         <div style={{ marginTop: 46 }}>
           <div style={eyebrow}>Terms of engagement</div>
           <H2 size={34}>Terms &amp; next steps.</H2>
@@ -363,7 +406,7 @@ export function ProposalDocument({ data }: { data: ProposalData }) {
           <div style={{ background: NAVY, borderRadius: 12, padding: 24, color: '#fff' }}><div style={{ fontFamily: MONO, fontSize: 11, color: '#7C8BA1', marginBottom: 12 }}>Step 03</div><div style={{ fontFamily: DISPLAY, fontWeight: 600, fontSize: 16, marginBottom: 7 }}>Commence</div><p style={{ margin: 0, fontSize: 12.5, lineHeight: 1.55, color: '#94A3B8' }}>Services begin on {data.startDate || 'the agreed date'}. {data.contactName} follows up after the first visit to confirm all is well.</p></div>
         </div>
         <div style={{ marginTop: 26, border: '1px dashed #CBD5E1', borderRadius: 10, padding: '18px 22px', fontSize: 12.5, lineHeight: 1.6, color: '#64748B' }}><strong style={{ color: NAVY }}>Proposal validity.</strong> This proposal is valid for {data.validity}. Pricing and availability may change after this period. A formal Service Agreement is issued on acceptance.</div>
-        <Footer n="09" />
+        <Footer n="10" />
       </section>
 
       {/* ── 10 · Thank you ── */}

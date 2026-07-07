@@ -18,7 +18,7 @@ export const BRAND = {
 
   // Contact
   email:      'hello@deltacleaning.com.au',
-  phone:      '0412 844 237',
+  phone:      '0412 844 238',
   website:    'deltacleaning.com.au',
   websiteUrl: 'https://deltacleaning.com.au',
 

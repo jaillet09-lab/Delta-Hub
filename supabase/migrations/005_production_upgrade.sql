@@ -52,7 +52,7 @@ EXCEPTION WHEN duplicate_object THEN NULL;
 END $$;
 
 INSERT INTO settings (key, value) VALUES
-  ('business', '{"name":"Delta Cleaning","email":"hello@deltacleaning.com.au","phone":"0412 844 237","website":"https://www.deltacleaning.com.au","address":"Brisbane, QLD"}'),
+  ('business', '{"name":"Delta Cleaning","email":"hello@deltacleaning.com.au","phone":"0412 844 238","website":"https://www.deltacleaning.com.au","address":"Brisbane, QLD"}'),
   ('margin_thresholds', '{"red":24,"yellow":40}'),
   ('valuation_multiple', '2.5'),
   ('survey_frequency_days', '90'),

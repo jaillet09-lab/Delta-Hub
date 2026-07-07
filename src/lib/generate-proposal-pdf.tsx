@@ -191,7 +191,7 @@ const CoverPage = ({ c }: { c: ProposalData }) => (
         <Label>Submitted by</Label>
         <Text style={{ fontSize: 12, fontFamily: 'Helvetica-Bold', color: INK, marginBottom: 2 }}>Jackson Jaillet</Text>
         <Text style={{ fontSize: 10, color: INK_SOFT, marginBottom: 2 }}>Founder & Director, Delta Cleaning</Text>
-        <Text style={{ fontSize: 10, color: INK_SOFT, marginBottom: 2 }}>+61 412 844 237</Text>
+        <Text style={{ fontSize: 10, color: INK_SOFT, marginBottom: 2 }}>+61 412 844 238</Text>
         <Text style={{ fontSize: 10, color: INK_SOFT, marginBottom: 18 }}>hello@deltacleaning.com.au</Text>
         <Divider />
         <View style={{ marginTop: 12, marginBottom: 14 }}>
@@ -466,7 +466,7 @@ const TermsPage = ({ c }: { c: ProposalData }) => (
     <View style={{ borderWidth: 0.5, borderColor: RULE, borderRadius: 3, backgroundColor: BG }}>
       <View style={{ padding: '14 18', borderBottomWidth: 0.5, borderBottomColor: RULE }}>
         <Text style={{ fontSize: 9, color: INK_SOFT }}>
-          To accept this proposal, please reply via email confirming your acceptance or contact Jackson Jaillet directly on <Text style={{ color: INK, fontFamily: 'Helvetica-Bold' }}>+61 412 844 237</Text> or <Text style={{ color: INK, fontFamily: 'Helvetica-Bold' }}>hello@deltacleaning.com.au</Text>.
+          To accept this proposal, please reply via email confirming your acceptance or contact Jackson Jaillet directly on <Text style={{ color: INK, fontFamily: 'Helvetica-Bold' }}>+61 412 844 238</Text> or <Text style={{ color: INK, fontFamily: 'Helvetica-Bold' }}>hello@deltacleaning.com.au</Text>.
         </Text>
       </View>
       <View style={{ flexDirection: 'row' }}>
@@ -486,7 +486,7 @@ const TermsPage = ({ c }: { c: ProposalData }) => (
     {/* Footer */}
     <View style={{ marginTop: 20, paddingTop: 14, borderTopWidth: 0.5, borderTopColor: RULE }}>
       <Text style={{ fontSize: 8, color: INK_FAINT, textAlign: 'center' }}>
-        Delta Cleaning · Brisbane, QLD · hello@deltacleaning.com.au · +61 412 844 237 · deltacleaning.com.au
+        Delta Cleaning · Brisbane, QLD · hello@deltacleaning.com.au · +61 412 844 238 · deltacleaning.com.au
       </Text>
     </View>
   </Page>

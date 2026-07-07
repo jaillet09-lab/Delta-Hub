@@ -27,7 +27,7 @@ export const DEFAULT_CAPABILITY: CapabilityData = {
   testimonial2Author: 'Keziah W. · Medical Clinic Manager',
   contactName: 'Jackson Jaillet',
   contactRole: 'Founder & Director',
-  contactPhone: '+61 412 844 237',
+  contactPhone: '+61 412 844 238',
   contactEmail: 'hello@deltacleaning.com.au',
   website: 'deltacleaning.com.au',
 }

@@ -49,7 +49,7 @@ Looking forward to hearing from you.
 Warm regards,
 Jackson Jaillet
 Founder & Director, Delta Cleaning
-+61 412 844 237
++61 412 844 238
 hello@deltacleaning.com.au'),
 
 ('Agreement Follow-Up', 'agreement_followup', 'Following up — Service Agreement', 'Hi {{contact_name}},
@@ -63,7 +63,7 @@ Please don''t hesitate to reach out if you have any questions about the terms.
 Warm regards,
 Jackson Jaillet
 Founder & Director, Delta Cleaning
-+61 412 844 237
++61 412 844 238
 hello@deltacleaning.com.au'),
 
 ('Onboarding Welcome', 'onboarding', 'Welcome to Delta Cleaning — {{business_name}}', 'Hi {{contact_name}},
@@ -80,7 +80,7 @@ If anything comes up in the meantime, don''t hesitate to reach out directly.
 Warm regards,
 Jackson Jaillet
 Founder & Director, Delta Cleaning
-+61 412 844 237
++61 412 844 238
 hello@deltacleaning.com.au'),
 
 ('Survey Request', 'survey', 'Quick check-in — How are we tracking?', 'Hi {{contact_name}},
@@ -94,7 +94,7 @@ If there''s anything at all that could be improved, please let me know directly.
 Warm regards,
 Jackson Jaillet
 Founder & Director, Delta Cleaning
-+61 412 844 237
++61 412 844 238
 hello@deltacleaning.com.au'),
 
 ('Survey Follow-Up', 'survey_followup', 'Following up on your feedback — {{business_name}}', 'Hi {{contact_name}},
@@ -108,7 +108,7 @@ If there''s anything specific you''d like me to look into, please let me know an
 Warm regards,
 Jackson Jaillet
 Founder & Director, Delta Cleaning
-+61 412 844 237
++61 412 844 238
 hello@deltacleaning.com.au'),
 
 ('Thank You', 'thankyou', 'Thank you — {{business_name}}', 'Hi {{contact_name}},
@@ -122,7 +122,7 @@ Please never hesitate to reach out if there''s anything you need.
 Warm regards,
 Jackson Jaillet
 Founder & Director, Delta Cleaning
-+61 412 844 237
++61 412 844 238
 hello@deltacleaning.com.au'),
 
 ('Upsell — Additional Services', 'upsell', 'Additional services available for {{business_name}}', 'Hi {{contact_name}},
@@ -143,5 +143,5 @@ All of these can be added to your existing schedule or done as a one-off. Happy 
 Warm regards,
 Jackson Jaillet
 Founder & Director, Delta Cleaning
-+61 412 844 237
++61 412 844 238
 hello@deltacleaning.com.au');

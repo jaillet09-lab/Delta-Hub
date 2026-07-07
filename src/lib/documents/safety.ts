@@ -33,7 +33,7 @@ export const COMPANY = {
   location: 'Brisbane, QLD',
   email: 'contact@deltacleaning.com.au',
   web: 'www.deltacleaning.com.au',
-  phone: '0412 844 237',
+  phone: '0412 844 238',
 }
 
 export const LEGISLATION =
@@ -98,7 +98,7 @@ export const SWMS_LIST: Swms[] = [
         risk: 'Delayed help if injured, personal security',
         controls: ['Keep a charged phone on you at all times', 'Advise a contact of start/finish times', 'Lock the site behind you; be aware of surroundings', 'Follow the site access and alarm procedure'],
         ppe: ['Hi-vis where required on site'],
-        emergency: 'Call 000 in an emergency; then notify Delta Cleaning on 0412 844 237.',
+        emergency: 'Call 000 in an emergency; then notify Delta Cleaning on 0412 844 238.',
       },
     ],
   },

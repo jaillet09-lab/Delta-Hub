@@ -4,13 +4,19 @@
 // Plain module (not a server action file) so it can export helpers + constants.
 
 import 'server-only'
+import { DELTA_EMAIL_SIGNATURE } from '@/lib/emails/proposal-email-body'
 
 const SIGNATURE = `
   <p style="margin-top: 24px;">
-    Jackson<br/>
-    Delta Cleaning · Brisbane<br/>
-    <a href="mailto:hello@deltacleaning.com.au" style="color: #1e3a5f;">hello@deltacleaning.com.au</a>
+    Best Regards<br/>
+    Jackson Jaillet<br/>
+    Founder &amp; Director, Delta Cleaning<br/>
+    <a href="tel:+61412844238" style="color: #1e3a5f;">0412 844 238</a><br/>
+    <a href="https://www.deltacleaning.com.au" style="color: #1e3a5f;">www.deltacleaning.com.au</a>
   </p>`
+
+// Plain-text sign-off (for the logged/preview copy), same content as SIGNATURE.
+const SIGNATURE_TEXT = `\n\n${DELTA_EMAIL_SIGNATURE}`
 
 export const EMAIL_WRAP = (inner: string) =>
   `<div style="font-family: Arial, Helvetica, sans-serif; font-size: 15px; color: #1a1a1a; line-height: 1.65; max-width: 560px;">${inner}${SIGNATURE}</div>`
@@ -85,17 +91,18 @@ export function introEmailContent(p: Prospect) {
   const firstName = (p.contactName || '').split(' ')[0]
   const greeting = firstName ? `Hi ${firstName},` : 'Hi,'
   const locality = localityPhrase(p.suburb)
-  const subject = `Delta Cleaning — capability statement for ${p.businessName}`
+  const subject = `Delta Cleaning capability statement for ${p.businessName}`
   const bodyText =
     `${greeting}\n\n` +
-    `Thanks for taking my call earlier — great to chat. As promised, I've attached Delta Cleaning's capability statement so you can see exactly what we do.\n\n` +
-    `We look after commercial cleaning for businesses${locality}: offices, clinics, retail and shared spaces — reliable teams, fixed monthly pricing and no lock-in.\n\n` +
-    `Have a look when you get a moment. If you think we can help in any way, feel free to call me directly on 0412 844 237, or just reply here and I'll set up a quick, free site visit.\n\nThanks,\nJackson\nDelta Cleaning`
+    `Thanks for taking my call earlier, great to chat. As promised, I've attached Delta Cleaning's capability statement so you can see exactly what we do.\n\n` +
+    `We look after commercial cleaning for businesses${locality}: offices, clinics, retail and shared spaces, with reliable teams, fixed monthly pricing and no lock-in.\n\n` +
+    `Have a look when you get a moment. If you think we can help in any way, feel free to call me directly on 0412 844 238, or just reply here and I'll set up a quick, free site visit.` +
+    SIGNATURE_TEXT
   const html = EMAIL_WRAP(`
   <p>${greeting}</p>
-  <p>Thanks for taking my call earlier — great to chat. As promised, I've attached Delta Cleaning's capability statement so you can see exactly what we do.</p>
-  <p>We look after commercial cleaning for businesses${locality}: offices, clinics, retail and shared spaces — reliable teams, fixed monthly pricing and no lock-in.</p>
-  <p>Have a look when you get a moment. If you think we can help in any way, feel free to call me directly on <a href="tel:+61412844237">0412 844 237</a>, or just reply here and I'll set up a quick, free site visit.</p>`)
+  <p>Thanks for taking my call earlier, great to chat. As promised, I've attached Delta Cleaning's capability statement so you can see exactly what we do.</p>
+  <p>We look after commercial cleaning for businesses${locality}: offices, clinics, retail and shared spaces, with reliable teams, fixed monthly pricing and no lock-in.</p>
+  <p>Have a look when you get a moment. If you think we can help in any way, feel free to call me directly on <a href="tel:+61412844238">0412 844 238</a>, or just reply here and I'll set up a quick, free site visit.</p>`)
   return { subject, html, bodyText }
 }
 
@@ -107,7 +114,8 @@ export function followUpEmailContent(p: Prospect, introSubject: string) {
   const bodyText =
     `${greeting}\n\n` +
     `Just following up on my note below. I know things get busy.\n\n` +
-    `The offer still stands: a free site visit of about fifteen minutes and a fixed monthly price, with no obligation. If you would like me to come past, just reply with a day that suits and I will make it work.\n\nThanks,\nJackson\nDelta Cleaning`
+    `The offer still stands: a free site visit of about fifteen minutes and a fixed monthly price, with no obligation. If you would like me to come past, just reply with a day that suits and I will make it work.` +
+    SIGNATURE_TEXT
   const html = EMAIL_WRAP(`
   <p>${greeting}</p>
   <p>Just following up on my note below. I know things get busy.</p>

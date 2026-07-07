@@ -99,7 +99,7 @@ and replace them (or wire them to `BRAND.*`):
 | "Delta Cleaning" | ~47 |
 | `deltacleaning.com.au` | ~27 |
 | ABN `83 303 026 478` | 4 |
-| Phone `0412 844 237` | 8 |
+| Phone `0412 844 238` | 8 |
 | Accent colours `#1e3a5f` / `#0b1320` | ~54 / ~13 |
 | Insurance policy no. `SPD015763734` | 1 |
 

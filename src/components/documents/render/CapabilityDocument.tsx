@@ -54,7 +54,7 @@ export function CapabilityDocument({ data }: { data: CapabilityData }) {
               <div style={eyebrow}>Who we are</div>
               <p style={{ fontSize: 14, lineHeight: 1.72, color: '#475569', margin: '0 0 14px' }}>Delta Cleaning is an owner-led commercial cleaning business based in Brisbane, serving offices, medical and healthcare facilities, warehouses, retail and facility-managed sites across South East Queensland.</p>
               <p style={{ fontSize: 14, lineHeight: 1.72, color: '#475569', margin: '0 0 14px' }}>We keep things deliberately hands-on. The owner is involved in every account, from the first walkthrough through to the ongoing service, so the standard is set and held by the person you actually deal with.</p>
-              <p style={{ fontSize: 14, lineHeight: 1.72, color: '#475569', margin: 0 }}>Each site is serviced by trained, vetted cleaners and backed by a single point of contact who answers the phone. The same crew returns to your site, so the quality stays consistent visit after visit.</p>
+              <p style={{ fontSize: 14, lineHeight: 1.72, color: '#475569', margin: 0 }}>Each site is run by a dedicated team with its own on-site supervisor who holds the standard day to day, with the owner across every site above them. The same crew returns each visit, so quality stays consistent and there is always a named person accountable for it.</p>
             </div>
             <div>
               <div style={eyebrow}>Accreditations &amp; cover</div>
@@ -98,7 +98,7 @@ export function CapabilityDocument({ data }: { data: CapabilityData }) {
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 12 }}>
             {[['01', 'Assess', 'Site walkthrough with the owner to scope your needs and risks.', false],
               ['02', 'Mobilise', 'Dedicated cleaners assigned, inducted and set up on your site.', false],
-              ['03', 'Deliver', 'Consistent scheduled cleans, tracked and time-stamped in the portal.', false],
+              ['03', 'Deliver', 'Scheduled cleans run by an on-site supervisor, tracked and time-stamped in the portal.', false],
               ['04', 'Review', 'Audits and check-ins with the owner keep the standard honest.', true]].map(([n, t, d, dark]) => (
               <div key={n as string} style={{ background: dark ? NAVY : '#F8FAFC', border: dark ? undefined : '1px solid #EEF2F6', borderRadius: 10, padding: 18, color: dark ? '#fff' : undefined }}>
                 <div style={{ fontFamily: MONO, fontSize: 11, color: dark ? '#7C8BA1' : '#94A3B8', marginBottom: 10 }}>{n}</div>
@@ -137,9 +137,9 @@ export function CapabilityDocument({ data }: { data: CapabilityData }) {
               </ul>
             </div>
             <div>
-              <div style={{ fontFamily: SANS, fontSize: 11, fontWeight: 700, letterSpacing: '.1em', textTransform: 'uppercase', color: NAVY, borderBottom: `2px solid ${NAVY}`, paddingBottom: 8, marginBottom: 12 }}>Specialist &amp; periodic</div>
+              <div style={{ fontFamily: SANS, fontSize: 11, fontWeight: 700, letterSpacing: '.1em', textTransform: 'uppercase', color: NAVY, borderBottom: `2px solid ${NAVY}`, paddingBottom: 8, marginBottom: 12 }}>Windows &amp; floor care</div>
               <ul style={{ margin: 0, padding: 0, listStyle: 'none', display: 'flex', flexDirection: 'column', gap: 7 }}>
-                {['Carpet steam cleaning & hard-floor care', 'Pressure washing & external cleaning', 'Window cleaning & high dusting', 'Strip & seal, scrub & polish', 'Post-fit-out & post-event cleans'].map(bullet)}
+                {['Window cleaning: internal & external glass, plus high dusting', 'Floor care plans for carpet, vinyl & concrete, built by our specialist', 'Carpet steam extraction & deep cleans', 'Vinyl strip, seal & polish; concrete pressure washing', 'Post-fit-out & post-event detail cleans'].map(bullet)}
               </ul>
             </div>
           </div>

@@ -76,7 +76,7 @@ export async function sendForSignatureAction(id: string, toEmail: string, messag
   const link = `${APP_URL}/sign/${code}`
   const res = await sendEmail(
     email,
-    `Your Delta Cleaning service agreement — ready to sign`,
+    `Your Delta Cleaning service agreement is ready to sign`,
     inviteEmail(agreement, link, message),
   )
   if (!res.success) return { error: res.error ?? 'Could not send the email. Please try again.' }

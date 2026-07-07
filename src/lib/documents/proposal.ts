@@ -50,7 +50,7 @@ export const DEFAULT_PROPOSAL: ProposalData = {
   validity: '30 days from the date of issue',
   contactName: 'Jackson Jaillet',
   contactRole: 'Founder & Director',
-  contactPhone: '+61 412 844 237',
+  contactPhone: '+61 412 844 238',
   contactEmail: 'hello@deltacleaning.com.au',
   scopeGroups: [
     {

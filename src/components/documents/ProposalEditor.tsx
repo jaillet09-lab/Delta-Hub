@@ -118,7 +118,7 @@ export function ProposalEditor({ id, initialData, status }: { id: string; initia
           </button>
         </div>
       </div>
-      {showSend && <SendProposalModal id={id} onClose={() => setShowSend(false)} />}
+      {showSend && <SendProposalModal id={id} clientName={data.clientName} attention={data.attention} onClose={() => setShowSend(false)} />}
 
       {/* Mobile Edit/Preview toggle (desktop shows both side-by-side) */}
       <div className="lg:hidden flex border-b border-gray-200 bg-white flex-shrink-0">

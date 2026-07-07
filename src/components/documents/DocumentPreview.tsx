@@ -218,7 +218,7 @@ function ProposalV2Preview({ c, doc }: { c: ProposalV2; doc: Document }) {
             <SectionLabel>Submitted by</SectionLabel>
             <p style={{ fontSize: 14, fontWeight: 700, color: INK, marginBottom: 2 }}>Jackson Jaillet</p>
             <p style={{ fontSize: 12, color: INK_SOFT, marginBottom: 2 }}>Founder & Director, Delta Cleaning</p>
-            <p style={{ fontSize: 12, color: INK_SOFT, marginBottom: 2 }}>+61 412 844 237</p>
+            <p style={{ fontSize: 12, color: INK_SOFT, marginBottom: 2 }}>+61 412 844 238</p>
             <p style={{ fontSize: 12, color: INK_SOFT, marginBottom: 28 }}>hello@deltacleaning.com.au</p>
 
             <div style={{ borderTop: `1px solid ${RULE_LIGHT}`, paddingTop: 16, marginBottom: 20 }}>

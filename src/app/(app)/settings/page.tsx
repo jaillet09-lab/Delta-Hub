@@ -14,7 +14,7 @@ import type { AppSettings, SurveyQuestion } from '@/types/app'
 import { Settings, Building2, Percent, MessageSquare, Bell, Plus, Trash2, ShieldCheck } from 'lucide-react'
 
 const DEFAULT: AppSettings = {
-  business: { name: 'Delta Cleaning', email: 'hello@deltacleaning.com.au', phone: '0412 844 237', website: 'https://www.deltacleaning.com.au', address: 'Brisbane, QLD' },
+  business: { name: 'Delta Cleaning', email: 'hello@deltacleaning.com.au', phone: '0412 844 238', website: 'https://www.deltacleaning.com.au', address: 'Brisbane, QLD' },
   margin_thresholds: { red: 24, yellow: 40 },
   valuation_multiple: 2.5,
   survey_frequency_days: 90,

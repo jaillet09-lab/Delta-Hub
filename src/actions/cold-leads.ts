@@ -2,6 +2,7 @@
 
 import { revalidatePath } from 'next/cache'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { introEmailContent, followUpEmailContent, buildCapabilityAttachment, sendThreadedEmail } from '@/lib/emails/prospect-email'
 
 export interface CommsEntry {
   kind: 'email' | 'follow_up_email' | 'sms'
@@ -328,63 +329,9 @@ export async function deleteColdLeadAction(id: string) {
 // for something in writing. Plain, human copy. No dashes anywhere in the copy
 // or subject lines (deliberate house style for these messages).
 
-const SIGNATURE = `
-  <p style="margin-top: 24px;">
-    Jackson<br/>
-    Delta Cleaning · Brisbane<br/>
-    <a href="mailto:hello@deltacleaning.com.au" style="color: #1e3a5f;">hello@deltacleaning.com.au</a>
-  </p>`
-
-const EMAIL_WRAP = (inner: string) =>
-  `<div style="font-family: Arial, Helvetica, sans-serif; font-size: 15px; color: #1a1a1a; line-height: 1.65; max-width: 560px;">${inner}${SIGNATURE}</div>`
-
-// The imported "suburb" field often holds a full street address. Only echo it
-// back when it's a clean locality, otherwise keep it generic.
-function localityPhrase(suburb: string | null): string {
-  if (!suburb) return ' in Brisbane'
-  const s = suburb.trim()
-  if (/\d/.test(s) || s.includes(',')) return ' in Brisbane'
-  return ` around ${s}`
-}
-
-// Low-level threaded sender. Sets a Message-ID we control so a later follow-up
-// can reference it (In-Reply-To / References) and land in the same email thread.
-async function sendThreadedEmail(opts: {
-  to: string
-  subject: string
-  html: string
-  messageId?: string
-  inReplyTo?: string
-  attachments?: { filename: string; content: Buffer }[]
-}): Promise<{ success: boolean; error?: string }> {
-  const apiKey = process.env.RESEND_API_KEY
-  if (!apiKey) return { success: false, error: 'Email is not configured.' }
-
-  const headers: Record<string, string> = {}
-  if (opts.messageId) headers['Message-ID'] = opts.messageId
-  if (opts.inReplyTo) {
-    headers['In-Reply-To'] = opts.inReplyTo
-    headers['References']  = opts.inReplyTo
-  }
-
-  try {
-    const { Resend } = await import('resend')
-    const resend = new Resend(apiKey)
-    const res = await resend.emails.send({
-      from: 'Jackson at Delta Cleaning <hello@deltacleaning.com.au>',
-      reply_to: 'hello@deltacleaning.com.au',
-      to: opts.to,
-      subject: opts.subject,
-      html: opts.html,
-      headers: Object.keys(headers).length ? headers : undefined,
-      attachments: opts.attachments,
-    })
-    if (res.error) return { success: false, error: res.error.message }
-    return { success: true }
-  } catch (err: any) {
-    return { success: false, error: err?.message ?? 'Email failed to send' }
-  }
-}
+// The intro / follow-up email copy, signature and threaded sender all live in
+// the shared @/lib/emails/prospect-email module so the cold-call deck and the
+// pipeline leads send the exact same thing (and can never drift apart again).
 
 export async function sendIntroEmailAction(id: string, scheduleFollowUp = false) {
   const db = createAdminClient() as any
@@ -393,36 +340,14 @@ export async function sendIntroEmailAction(id: string, scheduleFollowUp = false)
   if (!lead.email) return { error: 'This lead has no email address.' }
   if (!lead.has_spoken) return { error: 'Only send this once you’ve spoken with them on the phone.' }
 
-  const firstName = (lead.contact_name || '').split(' ')[0]
-  const greeting = firstName ? `Hi ${firstName},` : 'Hi,'
-  const locality = localityPhrase(lead.suburb)
+  const { subject, html, bodyText } = introEmailContent({
+    businessName: lead.business_name, contactName: lead.contact_name, suburb: lead.suburb,
+  })
 
   // A Message-ID we own, so the follow-up can thread under this email
   const messageId = `<intro-${id}-${Date.now()}@deltacleaning.com.au>`
-  const subject = `Delta Cleaning — capability statement for ${lead.business_name}`
-
-  const bodyText =
-    `${greeting}\n\n` +
-    `Thanks for taking my call earlier — great to chat. As promised, I've attached Delta Cleaning's capability statement so you can see exactly what we do.\n\n` +
-    `We look after commercial cleaning for businesses${locality}: offices, clinics, retail and shared spaces — reliable teams, fixed monthly pricing and no lock-in.\n\n` +
-    `Have a look when you get a moment. If you think we can help in any way, feel free to call me directly on 0412 844 237, or just reply here and I'll set up a quick, free site visit.\n\nThanks,\nJackson\nDelta Cleaning`
-
-  const html = EMAIL_WRAP(`
-  <p>${greeting}</p>
-  <p>Thanks for taking my call earlier — great to chat. As promised, I've attached Delta Cleaning's capability statement so you can see exactly what we do.</p>
-  <p>We look after commercial cleaning for businesses${locality}: offices, clinics, retail and shared spaces — reliable teams, fixed monthly pricing and no lock-in.</p>
-  <p>Have a look when you get a moment. If you think we can help in any way, feel free to call me directly on <a href="tel:+61412844237">0412 844 237</a>, or just reply here and I'll set up a quick, free site visit.</p>`)
-
   // Attach the capability statement (best-effort — still send if the PDF service is down)
-  let attachments: { filename: string; content: Buffer }[] | undefined
-  try {
-    const React = (await import('react')).default
-    const { renderDocumentPdf } = await import('@/lib/documents/pdf')
-    const { CapabilityDocument } = await import('@/components/documents/render/CapabilityDocument')
-    const { DEFAULT_CAPABILITY } = await import('@/lib/documents/capability')
-    const pdf = await renderDocumentPdf(React.createElement(CapabilityDocument, { data: DEFAULT_CAPABILITY as any }))
-    attachments = [{ filename: 'Delta Cleaning Capability Statement.pdf', content: pdf }]
-  } catch { /* no attachment if the PDF service is unavailable */ }
+  const attachments = await buildCapabilityAttachment()
 
   const result = await sendThreadedEmail({ to: lead.email, subject, html, messageId, attachments })
   if (!result.success) return { error: result.error || 'Email failed to send' }
@@ -449,23 +374,9 @@ export async function sendFollowUpEmailAction(id: string) {
     return { error: 'Send the first email before following up.' }
   }
 
-  const firstName = (lead.contact_name || '').split(' ')[0]
-  const greeting = firstName ? `Hi ${firstName},` : 'Hi,'
-
-  // "Re:" + the original subject + the original Message-ID = same Gmail thread
-  const subject = lead.intro_email_subject.startsWith('Re: ')
-    ? lead.intro_email_subject
-    : `Re: ${lead.intro_email_subject}`
-
-  const bodyText =
-    `${greeting}\n\n` +
-    `Just following up on my note below. I know things get busy.\n\n` +
-    `The offer still stands: a free site visit of about fifteen minutes and a fixed monthly price, with no obligation. If you would like me to come past, just reply with a day that suits and I will make it work.\n\nThanks,\nJackson\nDelta Cleaning`
-
-  const html = EMAIL_WRAP(`
-  <p>${greeting}</p>
-  <p>Just following up on my note below. I know things get busy.</p>
-  <p>The offer still stands: a free site visit of about fifteen minutes and a fixed monthly price, with no obligation. If you would like me to come past, just reply with a day that suits and I will make it work.</p>`)
+  const { subject, html, bodyText } = followUpEmailContent({
+    businessName: lead.business_name, contactName: lead.contact_name, suburb: lead.suburb,
+  }, lead.intro_email_subject)
 
   const result = await sendThreadedEmail({
     to: lead.email,
@@ -493,16 +404,10 @@ export async function previewIntroEmailAction(id: string): Promise<{ to?: string
   if (!lead.email) return { error: 'This lead has no email address.' }
   if (!lead.has_spoken) return { error: 'Only send this once you’ve spoken with them on the phone.' }
 
-  const firstName = (lead.contact_name || '').split(' ')[0]
-  const greeting = firstName ? `Hi ${firstName},` : 'Hi,'
-  const locality = localityPhrase(lead.suburb)
-  const subject = `Delta Cleaning — capability statement for ${lead.business_name}`
-  const body =
-    `${greeting}\n\n` +
-    `Thanks for taking my call earlier — great to chat. As promised, I've attached Delta Cleaning's capability statement so you can see exactly what we do.\n\n` +
-    `We look after commercial cleaning for businesses${locality}: offices, clinics, retail and shared spaces — reliable teams, fixed monthly pricing and no lock-in.\n\n` +
-    `Have a look when you get a moment. If you think we can help in any way, feel free to call me directly on 0412 844 237, or just reply here and I'll set up a quick, free site visit.\n\nThanks,\nJackson\nDelta Cleaning\n\n📎 Capability statement (PDF) attached`
-  return { to: lead.email, subject, body }
+  const { subject, bodyText } = introEmailContent({
+    businessName: lead.business_name, contactName: lead.contact_name, suburb: lead.suburb,
+  })
+  return { to: lead.email, subject, body: `${bodyText}\n\n📎 Capability statement (PDF) attached` }
 }
 
 export async function previewFollowUpEmailAction(id: string): Promise<{ to?: string; subject?: string; body?: string; error?: string }> {
@@ -512,14 +417,10 @@ export async function previewFollowUpEmailAction(id: string): Promise<{ to?: str
   if (!lead.email) return { error: 'This lead has no email address.' }
   if (!lead.intro_email_message_id || !lead.intro_email_subject) return { error: 'Send the first email before following up.' }
 
-  const firstName = (lead.contact_name || '').split(' ')[0]
-  const greeting = firstName ? `Hi ${firstName},` : 'Hi,'
-  const subject = lead.intro_email_subject.startsWith('Re: ') ? lead.intro_email_subject : `Re: ${lead.intro_email_subject}`
-  const body =
-    `${greeting}\n\n` +
-    `Just following up on my note below. I know things get busy.\n\n` +
-    `The offer still stands: a free site visit of about fifteen minutes and a fixed monthly price, with no obligation. If you would like me to come past, just reply with a day that suits and I will make it work.\n\nThanks,\nJackson\nDelta Cleaning`
-  return { to: lead.email, subject, body }
+  const { subject, bodyText } = followUpEmailContent({
+    businessName: lead.business_name, contactName: lead.contact_name, suburb: lead.suburb,
+  }, lead.intro_email_subject)
+  return { to: lead.email, subject, body: bodyText }
 }
 
 export async function markIntroSmsSentAction(id: string, body?: string) {

@@ -9,11 +9,33 @@ import { AgreementDocument } from '@/components/documents/render/AgreementDocume
 import { withProposalDefaults } from '@/lib/documents/proposal'
 import { withAgreementDefaults } from '@/lib/documents/agreement'
 import { DEFAULT_CAPABILITY } from '@/lib/documents/capability'
+import { buildProposalEmailBody, firstNameFromAttention } from '@/lib/emails/proposal-email-body'
 
 export const runtime = 'nodejs'
 export const maxDuration = 60
 
 const safe = (s: string) => s.replace(/[^\w.\- ]/g, '').trim()
+
+// Render a plain-text email body (what the owner edits in the Send box) into simple,
+// safe HTML: escape everything, turn URLs / emails into links, blank lines into
+// paragraphs and single newlines into <br/>.
+function bodyTextToHtml(text: string): string {
+  const esc = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+  const linkify = (s: string) => {
+    // URLs (with or without scheme) in one pass so we never double-wrap.
+    let out = s.replace(/(https?:\/\/[^\s<]+|www\.[^\s<]+|portal\.deltacleaning\.com\.au\/[^\s<]+)/g, (m) => {
+      const href = m.startsWith('http') ? m : `https://${m}`
+      const shown = m.replace(/^https?:\/\//, '')
+      return `<a href="${href}" style="color:#1e3a5f;">${shown}</a>`
+    })
+    // Bare email addresses (won't sit inside the anchors above — those have no @).
+    out = out.replace(/\b[\w.+-]+@[\w-]+\.[\w.-]+\b/g, (m) => `<a href="mailto:${m}" style="color:#1e3a5f;">${m}</a>`)
+    return out
+  }
+  const blocks = text.replace(/\r\n/g, '\n').split(/\n{2,}/).map((b) => b.trim()).filter(Boolean)
+  const inner = blocks.map((b) => `<p>${linkify(esc(b)).replace(/\n/g, '<br/>')}</p>`).join('\n')
+  return `<div style="font-family: Arial, Helvetica, sans-serif; font-size: 15px; color: #1a1a1a; line-height: 1.65; max-width: 560px;">${inner}</div>`
+}
 
 export async function POST(req: Request) {
   const { id, toEmail, attachCapability, message } = await req.json()
@@ -60,27 +82,19 @@ export async function POST(req: Request) {
     } catch { /* optional */ }
   }
 
-  const contactName = (data as any).contactName || 'Jackson'
-  const contactEmail = (data as any).contactEmail || 'hello@deltacleaning.com.au'
-  const greeting = 'Hi,'
-  const intro = (message && String(message).trim())
-    || (isAgreement
-      ? `Please find attached the service agreement for ${clientName}. Have a read through, and once you're happy, you can sign and return it. Any questions at all, just reply here.`
-      : `Thanks again for your time. Please find attached our cleaning proposal for ${clientName}. Everything we discussed is in there, and I'm happy to talk through any part of it.`)
+  // The email body: use exactly what the owner edited in the Send box if they sent
+  // one, otherwise fall back to the standard default. Either way it's plain text
+  // that we render to simple HTML below (escaping, auto-linking, paragraphs).
+  const bodyText = (message && String(message).trim())
+    ? String(message)
+    : buildProposalEmailBody({
+        firstName: firstNameFromAttention((data as any).attention),
+        clientName,
+        isAgreement,
+        attachCapability: !isAgreement && !!attachCapability,
+      })
 
-  const html = `
-<div style="font-family: Arial, Helvetica, sans-serif; font-size: 15px; color: #1a1a1a; line-height: 1.65; max-width: 560px;">
-  <p>${greeting}</p>
-  <p>${intro}</p>
-  ${(!isAgreement && attachCapability) ? '<p>I&rsquo;ve also attached our capability statement so you have a bit more background on Delta Cleaning.</p>' : ''}
-  <p>You can also view our full compliance pack &mdash; insurances, SWMS and policies &mdash; at <a href="https://portal.deltacleaning.com.au/compliance" style="color:#1e3a5f;">portal.deltacleaning.com.au/compliance</a>.</p>
-  <p>Whenever you&rsquo;re ready, just reply to this email.</p>
-  <p style="margin-top: 22px;">
-    ${contactName}<br/>
-    Delta Cleaning · Brisbane<br/>
-    <a href="mailto:${contactEmail}" style="color:#1e3a5f;">${contactEmail}</a>
-  </p>
-</div>`
+  const html = bodyTextToHtml(bodyText)
 
   try {
     const { Resend } = await import('resend')
