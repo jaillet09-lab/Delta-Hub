@@ -73,6 +73,7 @@ export async function POST(req: Request) {
   <p>${greeting}</p>
   <p>${intro}</p>
   ${(!isAgreement && attachCapability) ? '<p>I&rsquo;ve also attached our capability statement so you have a bit more background on Delta Cleaning.</p>' : ''}
+  <p>You can also view our full compliance pack &mdash; insurances, SWMS and policies &mdash; at <a href="https://portal.deltacleaning.com.au/compliance" style="color:#1e3a5f;">portal.deltacleaning.com.au/compliance</a>.</p>
   <p>Whenever you&rsquo;re ready, just reply to this email.</p>
   <p style="margin-top: 22px;">
     ${contactName}<br/>
