@@ -253,7 +253,7 @@ export function ProposalDocument({ data }: { data: ProposalData }) {
               )}
               <div style={{ marginTop: isFirst ? 30 : 48, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px 40px' }}>
                 {pg.map((g, i) => (
-                  <div key={i} style={{ breakInside: 'avoid' }}>
+                  <div key={i} style={{ breakInside: 'avoid', pageBreakInside: 'avoid' }}>
                     <div style={{ fontFamily: SANS, fontSize: 11, fontWeight: 700, letterSpacing: '.1em', textTransform: 'uppercase', color: NAVY, borderBottom: `2px solid ${NAVY}`, paddingBottom: 8, marginBottom: 12 }}>{g.title}</div>
                     <ul style={{ margin: 0, padding: 0, listStyle: 'none', display: 'flex', flexDirection: 'column', gap: 7 }}>
                       {g.items.map((it, j) => <Bullet key={j}>{it}</Bullet>)}
@@ -262,7 +262,7 @@ export function ProposalDocument({ data }: { data: ProposalData }) {
                 ))}
               </div>
               {isLast && data.additionalServices.length > 0 && (
-                <div style={{ marginTop: 26, background: '#F8FAFC', border: '1px solid #EEF2F6', borderRadius: 12, padding: '22px 26px', breakInside: 'avoid' }}>
+                <div style={{ marginTop: 26, background: '#F8FAFC', border: '1px solid #EEF2F6', borderRadius: 12, padding: '22px 26px', breakInside: 'avoid', pageBreakInside: 'avoid' }}>
                   <div style={{ ...eyebrow, fontSize: 10.5, marginBottom: 12 }}>Available on request, quoted separately</div>
                   <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
                     {data.additionalServices.map((s, i) => <Chip key={i} solid>{s}</Chip>)}
