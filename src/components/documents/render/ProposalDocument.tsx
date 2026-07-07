@@ -336,15 +336,21 @@ export function ProposalDocument({ data }: { data: ProposalData }) {
           <H2 size={36}>Investment.</H2>
         </div>
         <div style={{ marginTop: 34, border: '1px solid #E2E8F0', borderRadius: 12, overflow: 'hidden' }}>
-          <div style={{ display: 'grid', gridTemplateColumns: '2.2fr 1.1fr 1.1fr 1fr', background: NAVY, color: '#fff', fontFamily: SANS, fontSize: 10.5, fontWeight: 600, letterSpacing: '.1em', textTransform: 'uppercase' }}>
-            <div style={{ padding: '14px 22px' }}>Service</div><div style={{ padding: '14px 16px' }}>Frequency</div><div style={{ padding: '14px 16px' }}>Days</div><div style={{ padding: '14px 22px', textAlign: 'right' }}>Rate (ex GST)</div>
+          <div style={{ display: 'grid', gridTemplateColumns: '2.3fr 1fr 1fr 1.3fr', background: NAVY, color: '#fff', fontFamily: SANS, fontSize: 10.5, fontWeight: 600, letterSpacing: '.1em', textTransform: 'uppercase' }}>
+            <div style={{ padding: '14px 22px' }}>Service</div>
+            <div style={{ padding: '14px 14px' }}>Frequency</div>
+            <div style={{ padding: '14px 14px' }}>Days</div>
+            <div style={{ padding: '14px 22px', textAlign: 'right' }}>Rate (ex GST)</div>
           </div>
           {data.pricingRows.map((r, i) => (
-            <div key={i} style={{ display: 'grid', gridTemplateColumns: '2.2fr 1.1fr 1.1fr 1fr', borderBottom: i < data.pricingRows.length - 1 ? '1px solid #EEF2F6' : undefined, alignItems: 'center' }}>
-              <div style={{ padding: '18px 22px' }}><div style={{ fontWeight: 600, fontSize: 14.5 }}>{r.service}</div><div style={{ fontSize: 12, color: '#94A3B8', marginTop: 2 }}>{r.detail}</div></div>
-              <div style={{ padding: '18px 16px', fontSize: 13.5, color: '#475569' }}>{r.frequency}</div>
-              <div style={{ padding: '18px 16px', fontSize: 13.5, color: '#475569' }}>{r.days}</div>
-              <div style={{ padding: '18px 22px', textAlign: 'right', fontFamily: MONO, fontSize: 13, color: NAVY }}>{r.rate}</div>
+            <div key={i} style={{ display: 'grid', gridTemplateColumns: '2.3fr 1fr 1fr 1.3fr', borderBottom: i < data.pricingRows.length - 1 ? '1px solid #EEF2F6' : undefined, alignItems: 'start' }}>
+              <div style={{ padding: '17px 22px' }}>
+                <div style={{ fontWeight: 600, fontSize: 14, lineHeight: 1.3 }}>{r.service}</div>
+                {r.detail ? <div style={{ fontSize: 12, color: '#94A3B8', marginTop: 3, lineHeight: 1.4 }}>{r.detail}</div> : null}
+              </div>
+              <div style={{ padding: '17px 14px', fontSize: 13, color: '#475569', lineHeight: 1.4 }}>{r.frequency}</div>
+              <div style={{ padding: '17px 14px', fontSize: 13, color: '#475569', lineHeight: 1.4 }}>{r.days}</div>
+              <div style={{ padding: '17px 22px', textAlign: 'right', fontFamily: MONO, fontSize: 12.5, color: NAVY, lineHeight: 1.5 }}>{r.rate}</div>
             </div>
           ))}
         </div>
