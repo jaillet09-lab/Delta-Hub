@@ -218,32 +218,62 @@ export function ProposalDocument({ data }: { data: ProposalData }) {
         <Footer n="05" />
       </section>
 
-      {/* ── 6 · Scope of Services (editable) ── */}
-      <section data-sheet style={page}>
-        <Header label="04 · Scope of Services" />
-        <div style={{ marginTop: 48 }}>
-          <div style={eyebrow}>What&apos;s included</div>
-          <H2 size={36}>Scope of services.</H2>
-          <p style={{ margin: '16px 0 0', fontSize: 14, lineHeight: 1.65, color: '#475569', maxWidth: 640 }}>These inclusions apply to every scheduled visit at {data.siteAddress}, performed {data.frequency}. We confirmed this scope during the site walkthrough, and it can be tailored as your needs change.</p>
-        </div>
-        <div style={{ marginTop: 30, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px 40px' }}>
-          {data.scopeGroups.map((g, i) => (
-            <div key={i}>
-              <div style={{ fontFamily: SANS, fontSize: 11, fontWeight: 700, letterSpacing: '.1em', textTransform: 'uppercase', color: NAVY, borderBottom: `2px solid ${NAVY}`, paddingBottom: 8, marginBottom: 12 }}>{g.title}</div>
-              <ul style={{ margin: 0, padding: 0, listStyle: 'none', display: 'flex', flexDirection: 'column', gap: 7 }}>
-                {g.items.map((it, j) => <Bullet key={j}>{it}</Bullet>)}
-              </ul>
-            </div>
-          ))}
-        </div>
-        <div style={{ marginTop: 26, background: '#F8FAFC', border: '1px solid #EEF2F6', borderRadius: 12, padding: '22px 26px' }}>
-          <div style={{ ...eyebrow, fontSize: 10.5, marginBottom: 12 }}>Available on request, quoted separately</div>
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-            {data.additionalServices.map((s, i) => <Chip key={i} solid>{s}</Chip>)}
-          </div>
-        </div>
-        <Footer n="06" />
-      </section>
+      {/* ── 6 · Scope of Services (editable, paginated so it never clips) ── */}
+      {(() => {
+        const groups = data.scopeGroups ?? []
+        const cost = (g: { items: string[] }) => 2 + g.items.length
+        const total = groups.reduce((s, g) => s + cost(g), 0)
+        // Short scope stays on one page; long scope splits across A4 pages so a
+        // fixed-height sheet never overflows and clips.
+        const pages: (typeof groups)[] = []
+        if (total <= 30) {
+          pages.push(groups)
+        } else {
+          let curr: typeof groups = []
+          let c = 0
+          groups.forEach((g) => {
+            const budget = pages.length === 0 ? 24 : 36  // page 1 also carries the intro
+            if (curr.length && c + cost(g) > budget) { pages.push(curr); curr = []; c = 0 }
+            curr.push(g); c += cost(g)
+          })
+          if (curr.length) pages.push(curr)
+        }
+        return pages.map((pg, pi) => {
+          const isFirst = pi === 0
+          const isLast  = pi === pages.length - 1
+          return (
+            <section key={pi} data-sheet style={page}>
+              <Header label={pages.length > 1 ? `04 · Scope of Services · ${pi + 1}/${pages.length}` : '04 · Scope of Services'} />
+              {isFirst && (
+                <div style={{ marginTop: 48 }}>
+                  <div style={eyebrow}>What&apos;s included</div>
+                  <H2 size={36}>Scope of services.</H2>
+                  <p style={{ margin: '16px 0 0', fontSize: 14, lineHeight: 1.65, color: '#475569', maxWidth: 640 }}>These inclusions apply to the scheduled services at {data.siteAddress}, performed {data.frequency}. We confirmed this scope during the site walkthrough, and it can be tailored as your needs change.</p>
+                </div>
+              )}
+              <div style={{ marginTop: isFirst ? 30 : 48, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px 40px' }}>
+                {pg.map((g, i) => (
+                  <div key={i} style={{ breakInside: 'avoid' }}>
+                    <div style={{ fontFamily: SANS, fontSize: 11, fontWeight: 700, letterSpacing: '.1em', textTransform: 'uppercase', color: NAVY, borderBottom: `2px solid ${NAVY}`, paddingBottom: 8, marginBottom: 12 }}>{g.title}</div>
+                    <ul style={{ margin: 0, padding: 0, listStyle: 'none', display: 'flex', flexDirection: 'column', gap: 7 }}>
+                      {g.items.map((it, j) => <Bullet key={j}>{it}</Bullet>)}
+                    </ul>
+                  </div>
+                ))}
+              </div>
+              {isLast && data.additionalServices.length > 0 && (
+                <div style={{ marginTop: 26, background: '#F8FAFC', border: '1px solid #EEF2F6', borderRadius: 12, padding: '22px 26px', breakInside: 'avoid' }}>
+                  <div style={{ ...eyebrow, fontSize: 10.5, marginBottom: 12 }}>Available on request, quoted separately</div>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                    {data.additionalServices.map((s, i) => <Chip key={i} solid>{s}</Chip>)}
+                  </div>
+                </div>
+              )}
+              <Footer n="06" />
+            </section>
+          )
+        })
+      })()}
 
       {/* ── 7 · Investment (editable pricing) ── */}
       <section data-sheet style={page}>
