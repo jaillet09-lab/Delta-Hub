@@ -248,8 +248,8 @@ export function ProposalDocument({ data }: { data: ProposalData }) {
         <div style={{ marginTop: 30 }}>
           <div style={eyebrow}>How your team is run</div>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 14 }}>
-            {[['On-site supervisor', 'Every team has a supervisor on the ground who owns the standard, checks the work and is your first point of contact on site.'],
-              ['Owner oversight', 'Above the supervisor sits Jackson, the owner, across every team and every site, so accountability never stops at the crew.'],
+            {[['On-site supervisor', 'Every team has a supervisor on the ground who runs the crew, owns the standard and checks the work on every visit.'],
+              ['You deal with the owner', 'Jackson stays your direct point of contact across every team and every site, so you always reach the person who runs the business.'],
               ['One accountable chain', 'Cleaner to supervisor to owner. If anything is ever off, there is always a named person responsible for putting it right.']].map(([t, d]) => (
               <div key={t} style={{ background: '#F8FAFC', border: '1px solid #EEF2F6', borderTop: `3px solid ${NAVY}`, borderRadius: 10, padding: 22 }}>
                 <div style={{ fontFamily: DISPLAY, fontWeight: 600, fontSize: 15.5, marginBottom: 7 }}>{t}</div>
