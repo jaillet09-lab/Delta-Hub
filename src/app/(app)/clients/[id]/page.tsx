@@ -365,7 +365,7 @@ export default async function ClientProfilePage({ params }: { params: { id: stri
             <div className="flex items-center justify-between text-sm">
               <span className="text-gray-400">Signed contract</span>
               {signedAgreement ? (
-                <a href={`/documents/${signedAgreement.id}/print`} target="_blank" rel="noreferrer"
+                <a href={`/api/documents/${signedAgreement.id}/pdf`} target="_blank" rel="noreferrer"
                   className="inline-flex items-center gap-1 font-medium text-[#1e3a5f] hover:underline">
                   <FileText className="w-3.5 h-3.5" /> Open contract
                 </a>

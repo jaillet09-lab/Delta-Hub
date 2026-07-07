@@ -86,7 +86,7 @@ export function AgreementEditor({ id, initialData, status, signCode, clients = [
           <span className="text-[11px] text-gray-400 inline-flex items-center gap-1">
             {saved === 'saving' ? <><Loader2 className="w-3 h-3 animate-spin" /> Saving…</> : <><Check className="w-3 h-3 text-emerald-500" /> Saved</>}
           </span>
-          <a href={`/documents/${id}/print`} target="_blank" rel="noreferrer"
+          <a href={`/api/documents/${id}/pdf`} target="_blank" rel="noreferrer"
             className="inline-flex items-center gap-1.5 text-xs font-semibold bg-white border border-gray-200 text-gray-700 hover:border-gray-300 rounded-lg px-3 py-2 transition-colors">
             <Download className="w-3.5 h-3.5" /> PDF
           </a>
