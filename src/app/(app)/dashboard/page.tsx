@@ -600,7 +600,7 @@ export default async function DashboardPage() {
           <div className="flex-1 h-px bg-gray-200" />
         </div>
         <div className="space-y-4">
-          <SubcontractorCostCard mrr={mrr} />
+          <SubcontractorCostCard />
           <XeroFinanceWidget />
         </div>
       </div>

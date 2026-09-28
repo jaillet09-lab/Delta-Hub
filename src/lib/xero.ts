@@ -193,57 +193,58 @@ export async function getXeroAllTransactions(): Promise<XeroTransaction[]> {
   )
 }
 
-// ─── Subcontractor bills (the monthly Four Seasons / subbie invoice) ───────────
+// ─── Monthly P&L from Xero (Income − Cost of Sales = Gross Profit) ─────────────
 
-// The subcontractor invoices land in Xero under this supplier name (the owner
-// calls them "Four Seasons"; Xero records them as "Seasons Cleaning Australia").
-// Override with settings key `subcontractor_supplier` if the name ever changes.
-export const DEFAULT_SUBCONTRACTOR_MATCH = 'seasons cleaning'
+// The owner's real profit is Income minus the subcontractor (Four Seasons), which
+// Xero books to "Cost of Sales". Overhead expenses are excluded on purpose — the
+// owner's bank/Xero mix personal spending, so Cost of Sales is the only cost he
+// trusts. These figures come straight from Xero's own P&L report.
 
-export interface XeroSubBill {
-  id: string
-  invoiceNumber: string
-  contact: string
-  amount: number
-  amountDue: number
-  date: string | null
-  dueDate: string | null
-  status: string
-  paid: boolean
+export interface XeroPnlMonth {
+  label: string        // e.g. "Sep 2026"
+  income: number       // Total Income (Sales)
+  subcontractor: number // Total Cost of Sales (the Four Seasons subbie)
+  grossProfit: number  // Income − Cost of Sales
 }
 
-export async function getSubcontractorBills(match?: string): Promise<XeroSubBill[]> {
-  let needle = (match || '').trim().toLowerCase()
-  if (!needle) {
-    // Allow the owner to configure the supplier name without a code change.
-    try {
-      const supabase = createAdminClient()
-      const { data } = await (supabase as any)
-        .from('settings').select('value').eq('key', 'subcontractor_supplier').maybeSingle()
-      const v = data?.value
-      needle = (typeof v === 'string' ? v : '').trim().toLowerCase()
-    } catch { /* fall through to default */ }
+export async function getPnlMonthly(months = 6): Promise<XeroPnlMonth[]> {
+  const res = await xeroFetch(`/Reports/ProfitAndLoss?periods=${months}&timeframe=MONTH`)
+  if (!res.ok) throw new Error(`Xero P&L fetch failed: ${res.status}`)
+
+  const report = (await res.json())?.Reports?.[0]
+  if (!report) return []
+
+  const num = (s: any) => {
+    const n = parseFloat(String(s ?? '').replace(/,/g, ''))
+    return Number.isFinite(n) ? n : 0
   }
-  if (!needle) needle = DEFAULT_SUBCONTRACTOR_MATCH
 
-  // Most recent 100 payable bills (page 1, newest first) — covers recent months.
-  const res = await xeroFetch('/Invoices?where=Type%3D%3D%22ACCPAY%22&Statuses=AUTHORISED,PAID&order=Date+DESC&page=1')
-  if (!res.ok) throw new Error(`Xero bills fetch failed: ${res.status}`)
+  let labels: string[] = []
+  const series: Record<'income' | 'cogs' | 'gross', number[]> = { income: [], cogs: [], gross: [] }
 
-  const json = await res.json()
-  return (json.Invoices ?? [])
-    .filter((inv: any) => (inv.Contact?.Name ?? '').toLowerCase().includes(needle))
-    .map((inv: any): XeroSubBill => ({
-      id: inv.InvoiceID,
-      invoiceNumber: inv.InvoiceNumber ?? '',
-      contact: inv.Contact?.Name ?? '',
-      amount: inv.Total ?? 0,
-      amountDue: inv.AmountDue ?? 0,
-      date: inv.DateString ?? null,
-      dueDate: inv.DueDateString ?? null,
-      status: inv.Status ?? '',
-      paid: inv.Status === 'PAID' || ((inv.AmountDue ?? 0) === 0 && (inv.Total ?? 0) > 0),
-    }))
+  const walk = (rows: any[]) => {
+    for (const row of rows ?? []) {
+      if (row.RowType === 'Header' && Array.isArray(row.Cells)) {
+        labels = row.Cells.slice(1).map((c: any) => String(c?.Value ?? '').trim())
+      }
+      if ((row.RowType === 'SummaryRow' || row.RowType === 'Row') && Array.isArray(row.Cells)) {
+        const title = String(row.Cells[0]?.Value ?? '').trim().toLowerCase()
+        const vals  = row.Cells.slice(1).map((c: any) => num(c?.Value))
+        if (/^total (operating |trading )?income$/.test(title)) series.income = vals
+        else if (title === 'total cost of sales') series.cogs = vals
+        else if (title === 'gross profit') series.gross = vals
+      }
+      if (Array.isArray(row.Rows)) walk(row.Rows)
+    }
+  }
+  walk(report.Rows)
+
+  return labels.map((label, i) => {
+    const income = series.income[i] ?? 0
+    const cogs   = series.cogs[i]   ?? 0
+    const gross  = series.gross[i]  ?? income - cogs
+    return { label, income, subcontractor: cogs, grossProfit: gross }
+  })
 }
 
 // ─── P&L derived from approved transactions only ──────────────────────────────

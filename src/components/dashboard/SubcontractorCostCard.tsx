@@ -2,33 +2,24 @@
 
 import { useEffect, useState } from 'react'
 
-interface SubBill {
-  id: string
-  invoiceNumber: string
-  contact: string
-  amount: number
-  amountDue: number
-  date: string | null
-  dueDate: string | null
-  status: string
-  paid: boolean
+interface PnlMonth {
+  label: string          // "Sep 2026"
+  income: number
+  subcontractor: number  // Cost of Sales = the Four Seasons subbie
+  grossProfit: number
 }
 
 const fmt = (n: number) =>
   new Intl.NumberFormat('en-AU', { style: 'currency', currency: 'AUD', maximumFractionDigits: 0 }).format(n)
 
-const monthLabel = (key: string) => {
-  const [y, m] = key.split('-').map(Number)
-  return new Date(y, m - 1, 1).toLocaleDateString('en-AU', { month: 'short', year: 'numeric' })
+// Parse a "MMM yyyy" Xero column label into a sortable timestamp.
+const labelTime = (label: string) => {
+  const t = Date.parse(`1 ${label}`)
+  return Number.isFinite(t) ? t : 0
 }
 
-const dueLabel = (d: string | null) =>
-  d ? new Date(d).toLocaleDateString('en-AU', { day: 'numeric', month: 'short' }) : ''
-
-interface MonthGroup { key: string; total: number; due: number; bills: SubBill[] }
-
-export function SubcontractorCostCard({ mrr }: { mrr: number }) {
-  const [bills, setBills]         = useState<SubBill[] | null>(null)
+export function SubcontractorCostCard() {
+  const [months, setMonths]       = useState<PnlMonth[] | null>(null)
   const [connected, setConnected] = useState<boolean | null>(null)
 
   useEffect(() => {
@@ -38,119 +29,88 @@ export function SubcontractorCostCard({ mrr }: { mrr: number }) {
         setConnected(true)
         return r.json()
       })
-      .then(data => { if (data) setBills(Array.isArray(data) ? data : []) })
+      .then(data => { if (data) setMonths(Array.isArray(data) ? data : []) })
       .catch(() => setConnected(false))
   }, [])
 
   // Not connected → the Xero widget below already shows a connect prompt.
   if (connected === false) return null
-
-  if (connected === null || bills === null) {
+  if (connected === null || months === null) {
     return <div className="h-40 bg-gray-100 rounded-2xl animate-pulse" />
   }
 
-  // Group bills by calendar month
-  const groups = new Map<string, MonthGroup>()
-  for (const b of bills) {
-    if (!b.date) continue
-    const key = b.date.slice(0, 7) // YYYY-MM
-    const g = groups.get(key) ?? { key, total: 0, due: 0, bills: [] }
-    g.total += b.amount
-    g.due   += b.amountDue
-    g.bills.push(b)
-    groups.set(key, g)
-  }
-  const ordered = Array.from(groups.values()).sort((a, b) => b.key.localeCompare(a.key))
+  const ordered = [...months]
+    .filter(m => m.income || m.subcontractor)
+    .sort((a, b) => labelTime(b.label) - labelTime(a.label))
 
   if (ordered.length === 0) {
     return (
       <div className="bg-white border border-gray-200 rounded-2xl p-5">
-        <p className="text-sm font-semibold text-gray-900">Subcontractor cost — Four Seasons</p>
-        <p className="text-xs text-gray-400 mt-1">No Four Seasons bills found in Xero yet.</p>
+        <p className="text-sm font-semibold text-gray-900">Real profit — after Four Seasons</p>
+        <p className="text-xs text-gray-400 mt-1">No income or subcontractor figures in Xero yet.</p>
       </div>
     )
   }
 
-  const currentKey = new Date().toLocaleDateString('en-CA', { timeZone: 'Australia/Brisbane' }).slice(0, 7)
-  const current = groups.get(currentKey)
-  const shown   = current ?? ordered[0]        // this month, else the latest we have
-  const cost    = shown.total
-  const net     = mrr - cost
-  const unpaid  = shown.due
-  const earliestDue = shown.bills
-    .filter(b => b.amountDue > 0 && b.dueDate)
-    .map(b => b.dueDate!)
-    .sort()[0] ?? null
+  const latest = ordered[0]
+  const margin = latest.income > 0 ? (latest.grossProfit / latest.income) * 100 : 0
 
   return (
     <div className="bg-white border border-gray-200 rounded-2xl overflow-hidden shadow-sm">
       <div className="flex items-center justify-between px-5 py-3.5 border-b border-gray-100">
         <div className="flex items-center gap-2">
           <span className="w-2 h-2 rounded-full bg-[#13b5ea]" />
-          <p className="text-sm font-semibold text-gray-900">Subcontractor cost — Four Seasons</p>
+          <p className="text-sm font-semibold text-gray-900">Real profit — after Four Seasons</p>
         </div>
         <span className="text-[10px] bg-green-50 text-green-700 border border-green-100 px-2 py-0.5 rounded-full font-medium">
-          Live from Xero
+          Live from Xero · {latest.label}
         </span>
       </div>
 
-      {/* Income − subcontractor = net */}
+      {/* Income − subcontractor = gross profit */}
       <div className="grid grid-cols-3 divide-x divide-gray-100">
         <div className="px-5 py-4">
-          <p className="text-[10px] text-gray-400 uppercase tracking-wider mb-1">Income (MRR)</p>
-          <p className="text-lg font-bold text-gray-900 tabular-nums">{fmt(mrr)}</p>
+          <p className="text-[10px] text-gray-400 uppercase tracking-wider mb-1">Income</p>
+          <p className="text-lg font-bold text-gray-900 tabular-nums">{fmt(latest.income)}</p>
         </div>
         <div className="px-5 py-4">
-          <p className="text-[10px] text-gray-400 uppercase tracking-wider mb-1">
-            Four Seasons · {monthLabel(shown.key)}
-          </p>
-          <p className="text-lg font-bold text-orange-600 tabular-nums">−{fmt(cost)}</p>
+          <p className="text-[10px] text-gray-400 uppercase tracking-wider mb-1">Four Seasons</p>
+          <p className="text-lg font-bold text-orange-600 tabular-nums">−{fmt(latest.subcontractor)}</p>
         </div>
         <div className="px-5 py-4">
-          <p className="text-[10px] text-gray-400 uppercase tracking-wider mb-1">After subcontractor</p>
-          <p className={`text-lg font-bold tabular-nums ${net >= 0 ? 'text-emerald-700' : 'text-red-600'}`}>
-            {fmt(net)}
+          <p className="text-[10px] text-gray-400 uppercase tracking-wider mb-1">Real profit</p>
+          <p className={`text-lg font-bold tabular-nums ${latest.grossProfit >= 0 ? 'text-emerald-700' : 'text-red-600'}`}>
+            {fmt(latest.grossProfit)}
           </p>
+          <p className="text-[10px] text-gray-400 mt-0.5">{margin.toFixed(0)}% margin</p>
         </div>
       </div>
 
-      {unpaid > 0 && (
-        <div className="px-5 py-2 bg-amber-50 border-t border-amber-100 flex items-center justify-between">
-          <span className="text-xs font-medium text-amber-700">
-            Unpaid · {fmt(unpaid)} outstanding{earliestDue ? ` · due ${dueLabel(earliestDue)}` : ''}
-          </span>
-        </div>
-      )}
-
       {/* Recent months */}
       <div className="border-t border-gray-100">
-        <p className="px-5 pt-3 pb-1 text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Recent months</p>
+        <div className="grid grid-cols-4 px-5 pt-3 pb-1.5 text-[10px] font-semibold text-gray-400 uppercase tracking-wider">
+          <span>Month</span>
+          <span className="text-right">Income</span>
+          <span className="text-right">Four Seasons</span>
+          <span className="text-right">Profit</span>
+        </div>
         <div className="divide-y divide-gray-50">
-          {ordered.slice(0, 6).map(g => {
-            const paid = g.due === 0
-            return (
-              <div key={g.key} className="flex items-center justify-between px-5 py-2">
-                <div className="flex items-center gap-2 min-w-0">
-                  <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${paid ? 'bg-emerald-400' : 'bg-amber-400'}`} />
-                  <span className="text-sm text-gray-700">{monthLabel(g.key)}</span>
-                  <span className="text-[10px] text-gray-400">
-                    {g.bills.length} bill{g.bills.length !== 1 ? 's' : ''}
-                  </span>
-                </div>
-                <div className="flex items-center gap-2 flex-shrink-0">
-                  <span className="text-sm font-semibold text-gray-800 tabular-nums">{fmt(g.total)}</span>
-                  <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${paid ? 'text-emerald-600' : 'text-amber-600'}`}>
-                    {paid ? 'Paid' : 'Unpaid'}
-                  </span>
-                </div>
-              </div>
-            )
-          })}
+          {ordered.slice(0, 6).map(m => (
+            <div key={m.label} className="grid grid-cols-4 px-5 py-2 text-sm tabular-nums">
+              <span className="text-gray-700">{m.label}</span>
+              <span className="text-right text-gray-700">{fmt(m.income)}</span>
+              <span className="text-right text-orange-600">−{fmt(m.subcontractor)}</span>
+              <span className={`text-right font-semibold ${m.grossProfit >= 0 ? 'text-emerald-700' : 'text-red-600'}`}>
+                {fmt(m.grossProfit)}
+              </span>
+            </div>
+          ))}
         </div>
       </div>
 
       <p className="px-5 py-3 text-[11px] text-gray-400 border-t border-gray-100">
-        Your only tracked business cost — pulled live from Xero. Income is your contracted monthly revenue.
+        Income minus the Four Seasons subcontractor (Xero Cost of Sales), straight from your Xero P&amp;L.
+        Overheads are excluded on purpose — this is the profit figure you trust.
       </p>
     </div>
   )
