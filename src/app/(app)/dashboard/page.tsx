@@ -6,6 +6,7 @@ import { buildDashboardAlerts, computeClientHealth } from '@/lib/health'
 import { getUpcomingDates } from '@/lib/schedule'
 import { KPIGrid } from '@/components/dashboard/KPIGrid'
 import { AlertPanel } from '@/components/dashboard/AlertPanel'
+import { SubcontractorCostCard } from '@/components/dashboard/SubcontractorCostCard'
 import { RevenueByServiceType } from '@/components/analytics/RevenueByServiceType'
 import { AdminCompleteJobButton } from '@/components/dashboard/AdminCompleteJobButton'
 import { XeroFinanceWidget } from '@/components/admin/XeroFinanceWidget'
@@ -598,7 +599,10 @@ export default async function DashboardPage() {
           <p className="text-xs font-semibold text-gray-400 uppercase tracking-[0.14em] whitespace-nowrap">Accounting</p>
           <div className="flex-1 h-px bg-gray-200" />
         </div>
-        <XeroFinanceWidget />
+        <div className="space-y-4">
+          <SubcontractorCostCard mrr={mrr} />
+          <XeroFinanceWidget />
+        </div>
       </div>
     </div>
   )

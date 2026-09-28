@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getXeroTokens, getApprovedPL, getXeroAllTransactions, getXeroBankSummary } from '@/lib/xero'
+import { getXeroTokens, getApprovedPL, getXeroAllTransactions, getXeroBankSummary, getSubcontractorBills } from '@/lib/xero'
 
 export const dynamic = 'force-dynamic'
 
@@ -20,8 +20,10 @@ export async function GET(request: NextRequest) {
         return NextResponse.json(await getXeroAllTransactions())
       case 'summary':
         return NextResponse.json(await getXeroBankSummary())
+      case 'subcontractor':
+        return NextResponse.json(await getSubcontractorBills(searchParams.get('match') || undefined))
       default:
-        return NextResponse.json({ error: 'Unknown type. Use: pl | transactions | summary' }, { status: 400 })
+        return NextResponse.json({ error: 'Unknown type. Use: pl | transactions | summary | subcontractor' }, { status: 400 })
     }
   } catch (err: any) {
     const message = err?.message ?? 'Unknown error'

@@ -193,6 +193,59 @@ export async function getXeroAllTransactions(): Promise<XeroTransaction[]> {
   )
 }
 
+// ─── Subcontractor bills (the monthly Four Seasons / subbie invoice) ───────────
+
+// The subcontractor invoices land in Xero under this supplier name (the owner
+// calls them "Four Seasons"; Xero records them as "Seasons Cleaning Australia").
+// Override with settings key `subcontractor_supplier` if the name ever changes.
+export const DEFAULT_SUBCONTRACTOR_MATCH = 'seasons cleaning'
+
+export interface XeroSubBill {
+  id: string
+  invoiceNumber: string
+  contact: string
+  amount: number
+  amountDue: number
+  date: string | null
+  dueDate: string | null
+  status: string
+  paid: boolean
+}
+
+export async function getSubcontractorBills(match?: string): Promise<XeroSubBill[]> {
+  let needle = (match || '').trim().toLowerCase()
+  if (!needle) {
+    // Allow the owner to configure the supplier name without a code change.
+    try {
+      const supabase = createAdminClient()
+      const { data } = await (supabase as any)
+        .from('settings').select('value').eq('key', 'subcontractor_supplier').maybeSingle()
+      const v = data?.value
+      needle = (typeof v === 'string' ? v : '').trim().toLowerCase()
+    } catch { /* fall through to default */ }
+  }
+  if (!needle) needle = DEFAULT_SUBCONTRACTOR_MATCH
+
+  // Most recent 100 payable bills (page 1, newest first) — covers recent months.
+  const res = await xeroFetch('/Invoices?where=Type%3D%3D%22ACCPAY%22&Statuses=AUTHORISED,PAID&order=Date+DESC&page=1')
+  if (!res.ok) throw new Error(`Xero bills fetch failed: ${res.status}`)
+
+  const json = await res.json()
+  return (json.Invoices ?? [])
+    .filter((inv: any) => (inv.Contact?.Name ?? '').toLowerCase().includes(needle))
+    .map((inv: any): XeroSubBill => ({
+      id: inv.InvoiceID,
+      invoiceNumber: inv.InvoiceNumber ?? '',
+      contact: inv.Contact?.Name ?? '',
+      amount: inv.Total ?? 0,
+      amountDue: inv.AmountDue ?? 0,
+      date: inv.DateString ?? null,
+      dueDate: inv.DueDateString ?? null,
+      status: inv.Status ?? '',
+      paid: inv.Status === 'PAID' || ((inv.AmountDue ?? 0) === 0 && (inv.Total ?? 0) > 0),
+    }))
+}
+
 // ─── P&L derived from approved transactions only ──────────────────────────────
 
 export async function getApprovedPL(months = 3): Promise<XeroPLPeriod[]> {
