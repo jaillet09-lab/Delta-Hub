@@ -60,8 +60,14 @@ export async function POST(req: Request) {
     return NextResponse.json({ ok: true, skipped: 'no recipient' })
   }
 
-  // Always attach the capability statement (rendered PDF).
+  // Always attach the capability statement (rendered PDF). This is non-negotiable:
+  // if the PDF fails to render we do NOT send — we leave the follow-up pending so
+  // the safety cron retries, rather than let an email go out without it.
   const attachments = await buildCapabilityAttachment()
+  if (!attachments || attachments.length === 0) {
+    await db.from('calls').update({ follow_up_error: 'capability PDF not ready — will retry' }).eq('id', call.id)
+    return NextResponse.json({ ok: false, retry: 'capability pdf not ready' }, { status: 503 })
+  }
 
   // Reply into the existing thread if there is one; otherwise open a new thread we own.
   const existingThread = lead?.intro_email_message_id || null
