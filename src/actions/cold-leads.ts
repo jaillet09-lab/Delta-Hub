@@ -19,6 +19,7 @@ export interface ColdLead {
   email: string | null
   suburb: string | null
   industry: string | null
+  role: string | null
   status: 'new' | 'called' | 'follow_up' | 'walkthrough' | 'converted' | 'not_interested'
   call_count: number
   last_called_at: string | null
@@ -101,7 +102,7 @@ function parseCsv(text: string): string[][] {
 }
 
 export interface ColumnMap {
-  business: number; contact: number; phone: number; email: number; suburb: number; industry: number
+  business: number; contact: number; phone: number; email: number; suburb: number; industry: number; role: number
 }
 
 // Best-guess column mapping. Deliberately avoids picking an address column as
@@ -117,6 +118,7 @@ function guessColumns(headers: string[]): ColumnMap {
     email:    detectColumn(headers, ['email', 'e-mail']),
     suburb:   detectColumn(headers, ['suburb', 'city', 'locality', 'area']),
     industry: detectColumn(headers, ['industry', 'category', 'type', 'niche', 'sector']),
+    role:     detectColumn(headers, ['role', 'title', 'job title', 'position', 'seniority', 'job']),
   }
 }
 
@@ -191,6 +193,7 @@ export async function importColdLeadsAction(csvText: string, mapping?: ColumnMap
         email,
         suburb:        get(r, col.suburb),
         industry:      get(r, col.industry),
+        role:          get(r, col.role),
       }
     })
     .filter(l => l.business_name)

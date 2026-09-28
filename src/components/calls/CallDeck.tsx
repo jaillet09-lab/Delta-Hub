@@ -246,7 +246,8 @@ function LeadCard({ lead, today, onChanged }: { lead: ColdLead; today: string; o
 
         {/* Detail grid */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-1.5 mt-3">
-          {lead.contact_name && <Detail icon={User}>Ask for {lead.contact_name}</Detail>}
+          {lead.contact_name && <Detail icon={User}>Ask for {lead.contact_name}{lead.role ? ` · ${lead.role}` : ''}</Detail>}
+          {!lead.contact_name && lead.role && <Detail icon={User}>{lead.role}</Detail>}
           {lead.phone && <Detail icon={Phone} href={`tel:${cleanPhone(lead.phone)}`}>{lead.phone}</Detail>}
           {lead.suburb && <Detail icon={MapPin}>{lead.suburb}</Detail>}
           {lead.email && <Detail icon={Mail} href={`mailto:${lead.email}`}>{lead.email}</Detail>}
@@ -483,6 +484,7 @@ const MAP_FIELDS: { key: keyof ColumnMap; label: string; required?: boolean }[] 
   { key: 'email',    label: 'Email' },
   { key: 'suburb',   label: 'Suburb / area' },
   { key: 'industry', label: 'Industry' },
+  { key: 'role',     label: 'Role / title' },
 ]
 
 function ImportPanel({ onClose, onDone }: { onClose: () => void; onDone: (msg: string) => void }) {
