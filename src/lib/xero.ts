@@ -247,6 +247,53 @@ export async function getPnlMonthly(months = 6): Promise<XeroPnlMonth[]> {
   })
 }
 
+// Actual money paid to the Four Seasons subcontractor, per month — so the figure
+// matches the invoices the owner pays (they pay by card; Xero records each as a
+// SPEND bank transaction to the "Seasons Cleaning" contact). Keyed by "MMM yyyy"
+// to line up with the P&L month labels. Configurable via settings.subcontractor_supplier.
+export async function getSubcontractorSpend(months = 6): Promise<Record<string, number>> {
+  let needle = 'season'
+  try {
+    const supabase = createAdminClient()
+    const { data } = await (supabase as any)
+      .from('settings').select('value').eq('key', 'subcontractor_supplier').maybeSingle()
+    const v = data?.value
+    if (typeof v === 'string' && v.trim()) needle = v.trim().toLowerCase()
+  } catch { /* keep default */ }
+
+  const since = new Date()
+  since.setMonth(since.getMonth() - (months + 1))
+  const where = `Type=="SPEND" AND Date>=DateTime(${since.getFullYear()},${since.getMonth() + 1},1)`
+  const order = 'Date DESC'
+
+  const out: Record<string, number> = {}
+  for (let page = 1; page <= 6; page++) {
+    const res = await xeroFetch(`/BankTransactions?where=${encodeURIComponent(where)}&order=${encodeURIComponent(order)}&page=${page}`)
+    if (!res.ok) break
+    const txns: any[] = (await res.json())?.BankTransactions ?? []
+    if (txns.length === 0) break
+    for (const t of txns) {
+      if (!(t.Contact?.Name ?? '').toLowerCase().includes(needle)) continue
+      const ds = t.DateString || t.Date
+      if (!ds) continue
+      const label = new Date(ds).toLocaleDateString('en-US', { month: 'short', year: 'numeric' })
+      out[label] = (out[label] ?? 0) + (t.Total ?? 0)
+    }
+    if (txns.length < 100) break
+  }
+  return out
+}
+
+// Monthly P&L with the subcontractor line replaced by the actual Four Seasons
+// spend (falls back to total Cost of Sales for any month with no matched spend).
+export async function getSubcontractorPnl(months = 6): Promise<XeroPnlMonth[]> {
+  const [pnl, spend] = await Promise.all([getPnlMonthly(months), getSubcontractorSpend(months)])
+  return pnl.map((m) => {
+    const fourSeasons = spend[m.label] ?? m.subcontractor
+    return { label: m.label, income: m.income, subcontractor: fourSeasons, grossProfit: m.income - fourSeasons }
+  })
+}
+
 // ─── P&L derived from approved transactions only ──────────────────────────────
 
 export async function getApprovedPL(months = 3): Promise<XeroPLPeriod[]> {
