@@ -12,6 +12,8 @@ const PUBLIC_ROUTES = [
   '/api/cron',
   '/api/subcontractor',
   '/api/twilio',
+  '/api/calls/process',
+  '/api/calls/send-followup',
   '/survey',
   '/sign',
   '/onboard',
