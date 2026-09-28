@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { Link2, Check, Copy, Loader2, ShieldCheck, AlertTriangle, ExternalLink } from 'lucide-react'
+import { Link2, Check, Copy, Loader2, ShieldCheck, AlertTriangle, ExternalLink, Download } from 'lucide-react'
 import { ensureSubcontractorLinkAction } from '@/actions/subcontractor'
 
 interface Sub {
@@ -71,8 +71,9 @@ export function SubcontractorPanel({ sub }: { sub: Sub | null }) {
               {ins.label}
             </span>
           </div>
-          <div className="flex items-center gap-3 pt-1">
+          <div className="flex items-center gap-4 pt-1">
             {shownLink && <a href={shownLink} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-xs font-semibold text-[#1e3a5f] hover:underline"><ExternalLink className="w-3.5 h-3.5" /> View signed documents</a>}
+            {sub?.sign_code && <a href={`/api/subcontractor/${sub.sign_code}/pdf`} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-xs font-semibold text-[#1e3a5f] hover:underline"><Download className="w-3.5 h-3.5" /> Download signed copy</a>}
           </div>
         </div>
       ) : (

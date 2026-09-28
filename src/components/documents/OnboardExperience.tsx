@@ -1,8 +1,9 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
-import { Loader2, Check, ShieldCheck, Lock, FileText, ExternalLink } from 'lucide-react'
+import { Loader2, Check, ShieldCheck, Lock, FileText, ExternalLink, Download } from 'lucide-react'
 import { SubcontractorAgreementDocument, InductionDocument, type SubbieSignature } from '@/components/documents/render/SwmsDocument'
+import { DocBackButton } from '@/components/documents/DocBackButton'
 import { SWMS_LIST, POLICIES } from '@/lib/documents/safety'
 import { submitSubcontractorOnboardingAction } from '@/actions/subcontractor'
 
@@ -49,6 +50,7 @@ export function OnboardExperience({ code, alreadySigned }: { code: string; alrea
 
   return (
     <div className="min-h-[100dvh] bg-[#0b1320]">
+      {signed && <DocBackButton fallbackHref="/safety" />}
       <header className="px-5 pt-8 pb-6 text-center">
         <img src={WORDMARK_WHITE} alt="Delta Cleaning" className="h-6 w-auto mx-auto mb-5 opacity-95" />
         {signed ? (
@@ -56,6 +58,10 @@ export function OnboardExperience({ code, alreadySigned }: { code: string; alrea
             <div className="w-14 h-14 rounded-full bg-emerald-500/15 border border-emerald-400/40 flex items-center justify-center mx-auto mb-4"><Check className="w-7 h-7 text-emerald-400" /></div>
             <h1 className="text-white text-2xl font-bold tracking-tight">You&apos;re onboarded{signed.company ? `, ${signed.company}` : ''}.</h1>
             <p className="text-slate-400 text-sm mt-2 max-w-sm mx-auto">Your onboarding pack is signed and saved with Delta Cleaning. Thank you.</p>
+            <a href={`/api/subcontractor/${code}/pdf`} target="_blank" rel="noreferrer"
+              className="inline-flex items-center gap-2 mt-5 bg-white text-[#0b1320] text-sm font-semibold rounded-xl px-5 py-2.5 hover:bg-slate-100 transition-colors">
+              <Download className="w-4 h-4" /> Download signed copy
+            </a>
           </>
         ) : (
           <>
