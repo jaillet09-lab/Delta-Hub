@@ -2,6 +2,7 @@
 
 import { ProposalDocument } from '@/components/documents/render/ProposalDocument'
 import { AgreementDocument, type SignatureFill } from '@/components/documents/render/AgreementDocument'
+import { DocBackButton } from '@/components/documents/DocBackButton'
 
 // Print/PDF view for any document kind: A4 page rules + a screen-only download
 // button. Used for the staff "save as PDF" flow and the client's signed copy.
@@ -20,6 +21,7 @@ export function PrintProposal({ kind = 'proposal', data, signature }: { kind?: s
           html { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
         }
       `}</style>
+      <DocBackButton fallbackHref="/documents" />
       <div data-screen-only style={{ position: 'fixed', top: 18, right: 18, zIndex: 60 }}>
         <button
           onClick={() => window.print()}

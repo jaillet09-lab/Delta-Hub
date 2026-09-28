@@ -1,6 +1,7 @@
 'use client'
 
 import { CapabilityDocument } from '@/components/documents/render/CapabilityDocument'
+import { DocBackButton } from '@/components/documents/DocBackButton'
 import { withCapabilityDefaults, type CapabilityData } from '@/lib/documents/capability'
 
 // Print / PDF view of the capability statement — A4 page rules plus a screen-only
@@ -21,6 +22,7 @@ export function PrintCapability({ data }: { data?: Partial<CapabilityData> }) {
           html { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
         }
       `}</style>
+      <DocBackButton fallbackHref="/documents" />
       <div data-screen-only style={{ position: 'fixed', top: 18, right: 18, zIndex: 60 }}>
         <button
           onClick={() => window.print()}

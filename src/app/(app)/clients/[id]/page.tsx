@@ -22,7 +22,7 @@ import {
   HEALTH_STATUS_COLORS,
   HEALTH_STATUS_DOT,
 } from '@/lib/constants'
-import { toggleClientActiveAction } from '@/actions/clients'
+import { OffboardClientButton } from '@/components/clients/OffboardClientButton'
 import {
   ArrowLeft, Edit, Phone, Mail, MapPin, AlertTriangle, Calendar, ChevronRight,
   TrendingUp, DollarSign, BarChart3, Clock, Building2, FileText,
@@ -128,11 +128,6 @@ export default async function ClientProfilePage({ params }: { params: { id: stri
     ? Math.ceil((new Date(contractExpiry).getTime() - Date.now()) / 86_400_000)
     : null
 
-  async function toggleActive() {
-    'use server'
-    await toggleClientActiveAction(params.id, !client.active)
-  }
-
   const hLabel = HEALTH_STATUS_LABELS[health.status]
   const hColor = HEALTH_STATUS_COLORS[health.status]
   const hDot   = HEALTH_STATUS_DOT[health.status]
@@ -155,11 +150,7 @@ export default async function ClientProfilePage({ params }: { params: { id: stri
               Edit
             </Button>
           </Link>
-          <form action={toggleActive}>
-            <Button type="submit" variant={client.active ? 'secondary' : 'primary'} size="sm">
-              {client.active ? 'Mark Inactive' : 'Reactivate'}
-            </Button>
-          </form>
+          <OffboardClientButton clientId={params.id} active={!!client.active} hasEmail={!!client.contact_email} />
         </div>
       </div>
 

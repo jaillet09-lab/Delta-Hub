@@ -1,6 +1,7 @@
 'use client'
 
 import { SwmsDocument, ModernSlaveryDocument, SdsRegisterDocument, PolicyDocument, SubcontractorAgreementDocument, InductionDocument, TermsDocument } from '@/components/documents/render/SwmsDocument'
+import { DocBackButton } from '@/components/documents/DocBackButton'
 import type { Swms, Policy } from '@/lib/documents/safety'
 
 // Printable view for any Safety & Compliance document — A4 rules + a screen-only
@@ -20,6 +21,7 @@ export function SafetyPrint({ swms, policy, sds, agreement, induction, terms, vi
           ${viewOnly ? 'html, body { display: none !important; }' : ''}
         }
       `}</style>
+      <DocBackButton fallbackHref={viewOnly ? '/compliance' : '/safety'} />
       {!viewOnly && (
         <div data-screen-only style={{ position: 'fixed', top: 18, right: 18, zIndex: 60 }}>
           <button

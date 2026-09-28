@@ -379,11 +379,91 @@ export async function updateClientFromFormAction(formData: FormData) {
   return updateClientAction(id, formData)
 }
 
-export async function toggleClientActiveAction(id: string, active: boolean) {
-  const supabase = createClient()
-  await supabase.from('clients').update({ active }).eq('id', id)
-  revalidatePath('/clients')
-  revalidatePath(`/clients/${id}`)
+// Off-board (or reactivate) a client. Uses the service-role client and never
+// throws — it returns an { error } so the UI can show a message instead of
+// hitting the app-wide error boundary. Deactivating also disables the client's
+// portal login and (optionally) sends a thank-you + feedback email.
+export async function setClientActiveAction(
+  id: string,
+  active: boolean,
+  opts?: { sendEmail?: boolean },
+): Promise<{ success?: boolean; error?: string; emailSent?: boolean }> {
+  const admin = createAdminClient() as any
+  try {
+    const { error: upErr } = await admin.from('clients').update({ active }).eq('id', id)
+    if (upErr) return { error: `Could not update the client: ${upErr.message}` }
+
+    // Disable (or re-enable) the client's portal login(s). Best-effort — a portal
+    // account may not exist, and this must never block the status change.
+    try {
+      const { data: profs } = await admin.from('profiles').select('user_id').eq('linked_client_id', id).eq('role', 'client')
+      for (const p of profs ?? []) {
+        if (!p.user_id) continue
+        await admin.auth.admin.updateUserById(p.user_id, { ban_duration: active ? 'none' : '876000h' })
+      }
+    } catch { /* portal disable is best-effort */ }
+
+    let emailSent = false
+    if (!active && opts?.sendEmail) {
+      const res = await sendClientOffboardEmail(admin, id)
+      emailSent = !!res.success
+    }
+
+    revalidatePath('/clients')
+    revalidatePath(`/clients/${id}`)
+    return { success: true, emailSent }
+  } catch (e: any) {
+    return { error: e?.message || 'Something went wrong updating the client. Please try again.' }
+  }
+}
+
+// Thank-you + feedback email sent when a client is off-boarded (if the box is ticked).
+async function sendClientOffboardEmail(admin: any, clientId: string): Promise<{ success?: boolean; error?: string }> {
+  const apiKey = process.env.RESEND_API_KEY
+  if (!apiKey) return { error: 'Email is not configured.' }
+
+  const { data: client } = await admin.from('clients').select('business_name, contact_name, contact_email').eq('id', clientId).single()
+  if (!client?.contact_email) return { error: 'No email on file for this client.' }
+
+  // A feedback link (reuses the survey flow) so they can tell us how we did.
+  const { data: tokenRow } = await admin.from('survey_tokens').insert({ client_id: clientId }).select('token').single()
+  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://portal.deltacleaning.com.au'
+  const feedbackUrl = tokenRow ? `${baseUrl}/survey/${tokenRow.token}` : null
+  const firstName = (client.contact_name || '').split(' ')[0] || 'there'
+
+  const html = `<html><head><meta charset="utf-8"></head>
+<body style="margin:0;padding:0;font-family:Arial,sans-serif;font-size:15px;color:#1a1a1a;line-height:1.65;background:#fff;">
+<div style="max-width:540px;padding:40px 24px;">
+<p>Hi ${firstName},</p>
+<p>Thank you for having us look after ${client.business_name}. It's genuinely been a pleasure, and we're grateful for the time you trusted Delta Cleaning with your site.</p>
+<p>If anything ever changes, or you'd like us back, you can reach me directly any time, we'd welcome the chance to work with you again.</p>
+${feedbackUrl ? `<p>Before you go, if you have a spare minute, we'd really value your honest feedback on how we did, it helps us keep improving:</p>
+<p><a href="${feedbackUrl}" style="color:#1e3a5f;">Share a little feedback here</a></p>` : ''}
+<p>Wishing you and ${client.business_name} all the best.</p>
+<p style="margin-top:24px;">Best Regards<br/>
+Jackson Jaillet<br/>
+<span style="color:#555;font-size:14px;">Founder &amp; Director, Delta Cleaning</span><br/>
+<span style="color:#555;font-size:14px;">0412 844 238</span><br/>
+<a href="https://www.deltacleaning.com.au" style="color:#555;font-size:14px;text-decoration:none;">www.deltacleaning.com.au</a></p>
+</div>
+</body></html>`
+
+  try {
+    const { Resend } = await import('resend')
+    const resend = new Resend(apiKey)
+    const { error } = await resend.emails.send({
+      from: 'Jackson Jaillet <hello@deltacleaning.com.au>',
+      to: client.contact_email,
+      reply_to: 'hello@deltacleaning.com.au',
+      bcc: 'hello@deltacleaning.com.au',
+      subject: `Thank you from Delta Cleaning`,
+      html,
+    })
+    if (error) return { error: (error as any).message }
+    return { success: true }
+  } catch (e: any) {
+    return { error: e?.message || 'Failed to send the email.' }
+  }
 }
 
 export async function updateClientNotesAction(id: string, notes: string) {
