@@ -425,8 +425,8 @@ async function sendClientOffboardEmail(admin: any, clientId: string): Promise<{ 
   const { data: client } = await admin.from('clients').select('business_name, contact_name, contact_email').eq('id', clientId).single()
   if (!client?.contact_email) return { error: 'No email on file for this client.' }
 
-  // A feedback link (reuses the survey flow) so they can tell us how we did.
-  const { data: tokenRow } = await admin.from('survey_tokens').insert({ client_id: clientId }).select('token').single()
+  // A short exit-survey link (service, value, reason for leaving) so they can tell us how we did.
+  const { data: tokenRow } = await admin.from('survey_tokens').insert({ client_id: clientId, kind: 'exit' }).select('token').single()
   const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://portal.deltacleaning.com.au'
   const feedbackUrl = tokenRow ? `${baseUrl}/survey/${tokenRow.token}` : null
   const firstName = (client.contact_name || '').split(' ')[0] || 'there'

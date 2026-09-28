@@ -155,6 +155,59 @@ export async function submitSurveyAction(data: {
   return { success: true }
 }
 
+// ─── Exit survey (off-boarding) submission ────────────────────────────────────
+export async function submitExitSurveyAction(data: {
+  token: string
+  service: number
+  value: number
+  reason: string
+  comments?: string
+}): Promise<{ success?: boolean; error?: string }> {
+  const { createClient: createAnon } = await import('@supabase/supabase-js')
+  const supabase = createAnon(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!)
+  const db = supabase as any
+
+  const { data: result, error: rpcError } = await db.rpc('submit_exit_survey', {
+    p_token: data.token,
+    p_service: data.service,
+    p_value: data.value,
+    p_reason: data.reason,
+    p_comments: data.comments || null,
+  })
+  if (rpcError) return { error: `Failed to save your response: ${rpcError.message}` }
+  if (result?.error) return { error: result.error }
+
+  // Let Delta know why the client is leaving (service role to read the name).
+  try {
+    const { createClient: createSvc } = await import('@supabase/supabase-js')
+    const adminDb = createSvc(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!) as any
+    const { data: tokenRow } = await adminDb.from('survey_tokens').select('clients(business_name)').eq('token', data.token).single()
+    const businessName = tokenRow?.clients?.business_name || 'A client'
+    const apiKey = process.env.RESEND_API_KEY
+    if (apiKey) {
+      const { Resend } = await import('resend')
+      const resend = new Resend(apiKey)
+      await resend.emails.send({
+        from: 'Delta Hub <hello@deltacleaning.com.au>',
+        to: 'hello@deltacleaning.com.au',
+        subject: `Exit survey — ${businessName}`,
+        text: [
+          `${businessName} completed the exit survey.`,
+          ``,
+          `Service: ${data.service}/10`,
+          `Value:   ${data.value}/10`,
+          `Reason for leaving: ${data.reason}`,
+          data.comments ? `\nAnything else:\n${data.comments}` : '',
+        ].join('\n'),
+      })
+    }
+  } catch (_) {
+    // Notification failure should never block the client's submission.
+  }
+
+  return { success: true }
+}
+
 export async function sendSurveyReminderAction(tokenId: string): Promise<{ success?: boolean; error?: string }> {
   const apiKey = process.env.RESEND_API_KEY
   if (!apiKey) return { error: 'RESEND_API_KEY not configured' }

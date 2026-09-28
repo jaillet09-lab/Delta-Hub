@@ -1,5 +1,6 @@
 import Image from 'next/image'
 import { SurveyForm } from './SurveyForm'
+import { ExitSurveyForm } from './ExitSurveyForm'
 import { createAdminClient } from '@/lib/supabase/admin'
 
 export const dynamic = 'force-dynamic'
@@ -12,7 +13,7 @@ export default async function SurveyPage({ params }: { params: { token: string }
 
   const { data: tokenRow } = await db
     .from('survey_tokens')
-    .select('id, client_id, submitted_at, clients(business_name, contact_name)')
+    .select('id, client_id, submitted_at, kind, clients(business_name, contact_name)')
     .eq('token', params.token)
     .maybeSingle()
 
@@ -42,6 +43,7 @@ export default async function SurveyPage({ params }: { params: { token: string }
 
   const businessName = tokenRow.clients?.business_name || 'your business'
   const contactName = tokenRow.clients?.contact_name || ''
+  const isExit = tokenRow.kind === 'exit'
 
   return (
     <div style={{ minHeight: '100vh', background: '#f5f4f2', fontFamily: 'Arial, sans-serif' }}>
@@ -54,14 +56,17 @@ export default async function SurveyPage({ params }: { params: { token: string }
         {/* Intro */}
         <div style={{ marginBottom: 32 }}>
           <h1 style={{ fontSize: 26, fontWeight: 800, color: '#111', marginBottom: 8, lineHeight: 1.2 }}>
-            How are we going?
+            {isExit ? 'Before you go' : 'How are we going?'}
           </h1>
           <p style={{ fontSize: 15, color: '#666', margin: 0, lineHeight: 1.6 }}>
-            {contactName ? `Hi ${contactName} — ` : ''}This quick survey helps us keep improving our service at {businessName}. It takes less than 2 minutes.
+            {contactName ? `Hi ${contactName} — ` : ''}
+            {isExit
+              ? `we're sorry to see ${businessName} go. If you have a moment, three quick questions would really help us improve.`
+              : `This quick survey helps us keep improving our service at ${businessName}. It takes less than 2 minutes.`}
           </p>
         </div>
 
-        <SurveyForm token={params.token} />
+        {isExit ? <ExitSurveyForm token={params.token} /> : <SurveyForm token={params.token} />}
       </div>
     </div>
   )
