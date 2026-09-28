@@ -14,7 +14,7 @@ const PUBLIC_ROUTES = [
   '/api/twilio',
   '/api/calls/process',
   '/api/calls/send-followup',
-  '/api/documents/capability/pdf',
+  '/api/capability-statement',
   '/survey',
   '/sign',
   '/onboard',

@@ -7,9 +7,9 @@ import { DEFAULT_CAPABILITY } from '@/lib/documents/capability'
 export const runtime = 'nodejs'
 export const maxDuration = 60
 
-// The Delta Cleaning capability statement as a real PDF. This is the exact file
-// attached to call follow-ups and proposal emails, exposed so it can be viewed or
-// downloaded directly. It's marketing material (same doc prospects receive).
+// The Delta Cleaning capability statement as a real PDF — the exact file attached
+// to call follow-ups and proposal emails, exposed so it can be viewed/downloaded.
+// Its own path (not under /api/documents/[id]) to avoid the dynamic-route collision.
 export async function GET() {
   try {
     const pdf = await renderDocumentPdf(React.createElement(CapabilityDocument, { data: DEFAULT_CAPABILITY as any }))
