@@ -10,6 +10,7 @@ import {
 import { Button } from '@/components/ui/Button'
 import { Badge } from '@/components/ui/Badge'
 import { Modal } from '@/components/ui/Modal'
+import { CallHistory, type CallRow } from '@/components/calls/CallHistory'
 import { ProposalForm } from '@/components/leads/ProposalForm'
 import { AgreementForm } from '@/components/leads/AgreementForm'
 import { formatDate, formatAUD } from '@/lib/formatters'
@@ -36,7 +37,7 @@ const PIPELINE_STAGES = [
 
 const STAGE_ORDER = ['lead', 'contacted', 'quoted', 'proposal_sent', 'agreement_sent']
 
-export function LeadProfile({ lead: initialLead }: { lead: Lead }) {
+export function LeadProfile({ lead: initialLead, calls = [] }: { lead: Lead; calls?: CallRow[] }) {
   const router = useRouter()
   const [lead, setLead] = useState(initialLead)
   const [showProposal, setShowProposal] = useState(false)
@@ -395,6 +396,9 @@ export function LeadProfile({ lead: initialLead }: { lead: Lead }) {
               {emailFlash && <p className="text-xs font-medium text-emerald-600 mt-3">{emailFlash}</p>}
             </div>
           </div>
+
+          {/* Calls */}
+          <CallHistory calls={calls} />
 
           {/* Documents */}
           <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
