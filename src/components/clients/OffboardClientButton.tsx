@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { createPortal } from 'react-dom'
 import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/Button'
 import { setClientActiveAction } from '@/actions/clients'
@@ -43,9 +44,9 @@ export function OffboardClientButton({ clientId, active, hasEmail }: { clientId:
     <>
       <Button onClick={() => { setError(null); setOpen(true) }} variant="secondary" size="sm">Mark Inactive</Button>
 
-      {open && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => !busy && setOpen(false)} />
+      {open && typeof document !== 'undefined' && createPortal(
+        <div className="fixed inset-0 z-[100] flex items-start justify-center p-4 pt-[max(5vh,1rem)] overflow-y-auto">
+          <div className="fixed inset-0 bg-black/40 backdrop-blur-sm" onClick={() => !busy && setOpen(false)} />
           <div className="relative bg-white w-full max-w-sm rounded-2xl border border-gray-200 shadow-xl p-6">
             <div className="flex items-start justify-between mb-3">
               <h3 className="font-display text-lg font-bold text-gray-900">Off-board this client</h3>
@@ -73,7 +74,8 @@ export function OffboardClientButton({ clientId, active, hasEmail }: { clientId:
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body,
       )}
     </>
   )
