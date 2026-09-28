@@ -3,11 +3,24 @@
 import { useState, useRef, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { submitJobAction, uploadJobPhotoAction } from '@/actions/jobs'
-import { Camera, Video, X, CheckCircle2, Circle, Loader2 } from 'lucide-react'
+import { Camera, Video, X, CheckCircle2, Circle, Loader2, RotateCw } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 
 const MIN_PHOTOS = 0
 const MAX_PHOTOS = 10
+
+// A stalled upload on a phone/patchy data must NEVER freeze the Submit button.
+// If an upload takes longer than this it's marked failed (with a Retry), which
+// frees the cleaner to retry or submit without it.
+const UPLOAD_TIMEOUT_MS = 120_000
+const SUBMIT_TIMEOUT_MS = 60_000
+
+function withTimeout<T>(p: Promise<T>, ms: number): Promise<T> {
+  return Promise.race([
+    p,
+    new Promise<T>((_, reject) => setTimeout(() => reject(new Error('timeout')), ms)),
+  ])
+}
 
 interface ChecklistItem {
   id: string
@@ -22,6 +35,7 @@ interface Props {
 
 interface PhotoEntry {
   id: string          // local key
+  file: File          // kept so a failed upload can be retried
   localUrl: string    // blob URL — shown immediately
   remoteUrl: string | null  // Supabase URL — set after upload
   uploading: boolean
@@ -30,6 +44,7 @@ interface PhotoEntry {
 
 interface VideoEntry {
   id: string
+  file: File
   localUrl: string    // blob URL — shown immediately in player
   remoteUrl: string | null  // Supabase URL
   name: string
@@ -91,7 +106,7 @@ async function stampPhoto(file: File): Promise<Blob> {
         0.88,
       )
     }
-    img.onerror = reject
+    img.onerror = () => { URL.revokeObjectURL(objectUrl); reject(new Error('Could not read image')) }
     img.src = objectUrl
   })
 }
@@ -121,9 +136,30 @@ export function SubmitJobForm({ jobId, checklist }: Props) {
   const requiredItems    = checklist.filter((i) => i.required)
   const allRequiredChecked = requiredItems.every((i) => checked[i.id])
   const anyUploading     = photos.some((p) => p.uploading) || videos.some((v) => v.uploading)
+  const anyFailed        = photos.some((p) => p.error) || videos.some((v) => v.error)
   const canSubmit        = uploadedPhotos.length >= MIN_PHOTOS
     && !anyUploading
     && (requiredItems.length === 0 || allRequiredChecked)
+
+  // Stamp + upload a single photo entry (also used by Retry).
+  async function uploadPhotoEntry(id: string, file: File) {
+    setPhotos((p) => p.map((x) => x.id === id ? { ...x, uploading: true, error: null } : x))
+    try {
+      const stamped     = await stampPhoto(file)
+      const stampedFile = new File([stamped], file.name, { type: 'image/jpeg' })
+      const fd          = new FormData()
+      fd.append('photo', stampedFile)
+      const result = await withTimeout(uploadJobPhotoAction(jobId, fd), UPLOAD_TIMEOUT_MS)
+      if (result.error) {
+        setPhotos((p) => p.map((x) => x.id === id ? { ...x, uploading: false, error: result.error! } : x))
+      } else {
+        setPhotos((p) => p.map((x) => x.id === id ? { ...x, uploading: false, remoteUrl: result.url! } : x))
+      }
+    } catch (e: any) {
+      const msg = e?.message === 'timeout' ? 'Timed out' : 'Failed'
+      setPhotos((p) => p.map((x) => x.id === id ? { ...x, uploading: false, error: msg } : x))
+    }
+  }
 
   async function handlePhotoSelect(e: React.ChangeEvent<HTMLInputElement>) {
     const files = Array.from(e.target.files ?? [])
@@ -136,26 +172,33 @@ export function SubmitJobForm({ jobId, checklist }: Props) {
     if (fileInputRef.current) fileInputRef.current.value = ''
 
     for (const file of files) {
-      // 1. Show instant local preview
       const localUrl = URL.createObjectURL(file)
       const id       = `${Date.now()}-${Math.random()}`
-      setPhotos((p) => [...p, { id, localUrl, remoteUrl: null, uploading: true, error: null }])
+      setPhotos((p) => [...p, { id, file, localUrl, remoteUrl: null, uploading: true, error: null }])
+      // Fire the upload; it manages its own state and can never hang forever.
+      void uploadPhotoEntry(id, file)
+    }
+  }
 
-      // 2. Stamp + upload in background
-      try {
-        const stamped     = await stampPhoto(file)
-        const stampedFile = new File([stamped], file.name, { type: 'image/jpeg' })
-        const fd          = new FormData()
-        fd.append('photo', stampedFile)
-        const result = await uploadJobPhotoAction(jobId, fd)
-        if (result.error) {
-          setPhotos((p) => p.map((x) => x.id === id ? { ...x, uploading: false, error: result.error! } : x))
-        } else {
-          setPhotos((p) => p.map((x) => x.id === id ? { ...x, uploading: false, remoteUrl: result.url! } : x))
-        }
-      } catch {
-        setPhotos((p) => p.map((x) => x.id === id ? { ...x, uploading: false, error: 'Upload failed' } : x))
+  // Upload a single video entry (also used by Retry).
+  async function uploadVideoEntry(id: string, file: File) {
+    setVideos((v) => v.map((x) => x.id === id ? { ...x, uploading: true, error: null } : x))
+    try {
+      const supabase = createClient()
+      const path     = `videos/${jobId}/${Date.now()}.mp4`
+      const { error: upErr } = await withTimeout<any>(
+        (supabase as any).storage.from('job-photos').upload(path, file, { contentType: file.type || 'video/mp4', upsert: false }),
+        UPLOAD_TIMEOUT_MS,
+      )
+      if (upErr) {
+        setVideos((v) => v.map((x) => x.id === id ? { ...x, uploading: false, error: upErr.message } : x))
+      } else {
+        const { data } = (supabase as any).storage.from('job-photos').getPublicUrl(path)
+        setVideos((v) => v.map((x) => x.id === id ? { ...x, uploading: false, remoteUrl: data.publicUrl as string } : x))
       }
+    } catch (e: any) {
+      const msg = e?.message === 'timeout' ? 'Timed out' : 'Upload failed'
+      setVideos((v) => v.map((x) => x.id === id ? { ...x, uploading: false, error: msg } : x))
     }
   }
 
@@ -165,30 +208,10 @@ export function SubmitJobForm({ jobId, checklist }: Props) {
     setError(null)
     if (videoInputRef.current) videoInputRef.current.value = ''
 
-    // 1. Show instant local video preview
     const localUrl = URL.createObjectURL(file)
     const id       = `${Date.now()}-${Math.random()}`
-    setVideos((v) => [...v, { id, localUrl, remoteUrl: null, name: file.name, uploading: true, error: null }])
-
-    // 2. Upload in background
-    try {
-      const supabase = createClient()
-      const fileName = `${Date.now()}.mp4`
-      const path     = `videos/${jobId}/${fileName}`
-
-      const { error: upErr } = await (supabase as any).storage
-        .from('job-photos')
-        .upload(path, file, { contentType: file.type || 'video/mp4', upsert: false })
-
-      if (upErr) {
-        setVideos((v) => v.map((x) => x.id === id ? { ...x, uploading: false, error: upErr.message } : x))
-      } else {
-        const { data } = (supabase as any).storage.from('job-photos').getPublicUrl(path)
-        setVideos((v) => v.map((x) => x.id === id ? { ...x, uploading: false, remoteUrl: data.publicUrl as string } : x))
-      }
-    } catch {
-      setVideos((v) => v.map((x) => x.id === id ? { ...x, uploading: false, error: 'Upload failed' } : x))
-    }
+    setVideos((v) => [...v, { id, file, localUrl, remoteUrl: null, name: file.name, uploading: true, error: null }])
+    void uploadVideoEntry(id, file)
   }
 
   function removePhoto(id: string) {
@@ -215,22 +238,27 @@ export function SubmitJobForm({ jobId, checklist }: Props) {
     if (!canSubmit) return
     setSubmitting(true)
     setError(null)
-    const result = await submitJobAction({
-      jobId,
-      photoUrls:          uploadedPhotos.map((p) => p.remoteUrl!),
-      videoUrls:          videos.filter((v) => v.remoteUrl).map((v) => v.remoteUrl!),
-      checklistCompleted: checked,
-      notes,
-    })
-    if (result.error) {
-      setError(result.error)
+    try {
+      const result = await withTimeout(submitJobAction({
+        jobId,
+        photoUrls:          uploadedPhotos.map((p) => p.remoteUrl!),
+        videoUrls:          videos.filter((v) => v.remoteUrl).map((v) => v.remoteUrl!),
+        checklistCompleted: checked,
+        notes,
+      }), SUBMIT_TIMEOUT_MS)
+      if (result?.error) {
+        setError(result.error)
+        setSubmitting(false)
+        return
+      }
+      router.push('/cleaner/dashboard')
+    } catch (e: any) {
+      setError(e?.message === 'timeout'
+        ? 'Submitting is taking too long — check your connection and try again.'
+        : 'Could not submit. Please try again.')
       setSubmitting(false)
-      return
     }
-    router.push('/cleaner/dashboard')
   }
-
-  const remaining = MIN_PHOTOS - uploadedPhotos.length
 
   return (
     <div className="space-y-5">
@@ -272,11 +300,15 @@ export function SubmitJobForm({ jobId, checklist }: Props) {
                   <Loader2 className="w-6 h-6 text-white animate-spin" />
                 </div>
               )}
-              {/* Error overlay */}
-              {p.error && (
-                <div className="absolute inset-0 bg-red-500/70 flex items-center justify-center">
-                  <span className="text-white text-[10px] font-semibold px-1 text-center">Failed</span>
-                </div>
+              {/* Error overlay — tap to retry */}
+              {p.error && !p.uploading && (
+                <button
+                  onClick={() => uploadPhotoEntry(p.id, p.file)}
+                  className="absolute inset-0 bg-red-500/75 flex flex-col items-center justify-center gap-1 active:scale-[0.97] transition-transform"
+                >
+                  <RotateCw className="w-5 h-5 text-white" />
+                  <span className="text-white text-[10px] font-semibold px-1 text-center">{p.error} · Retry</span>
+                </button>
               )}
               {/* Uploaded tick */}
               {p.remoteUrl && (
@@ -348,10 +380,14 @@ export function SubmitJobForm({ jobId, checklist }: Props) {
                       </div>
                     </div>
                   )}
-                  {v.error && (
-                    <div className="absolute inset-0 bg-red-500/50 flex items-center justify-center pointer-events-none">
-                      <span className="text-white text-xs font-semibold">Upload failed — tap × to remove</span>
-                    </div>
+                  {v.error && !v.uploading && (
+                    <button
+                      onClick={() => uploadVideoEntry(v.id, v.file)}
+                      className="absolute inset-0 bg-red-500/55 flex items-center justify-center gap-2 active:scale-[0.98] transition-transform"
+                    >
+                      <RotateCw className="w-4 h-4 text-white" />
+                      <span className="text-white text-xs font-semibold">{v.error} · Tap to retry</span>
+                    </button>
                   )}
                 </div>
                 <div className="flex items-center gap-3 px-4 py-2.5">
@@ -461,7 +497,12 @@ export function SubmitJobForm({ jobId, checklist }: Props) {
             Uploading media, please wait…
           </p>
         )}
-        {!canSubmit && !anyUploading && (
+        {!anyUploading && anyFailed && (
+          <p className="text-xs text-center text-amber-600">
+            Some media didn&apos;t upload. Tap a red one to retry, remove it, or submit without it.
+          </p>
+        )}
+        {!canSubmit && !anyUploading && requiredItems.length > 0 && !allRequiredChecked && (
           <p className="text-xs text-center text-gray-400">
             Complete all required checklist items.
           </p>
