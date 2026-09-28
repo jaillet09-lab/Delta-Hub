@@ -1,23 +1,20 @@
 import Image from 'next/image'
 import { SurveyForm } from './SurveyForm'
-import { createServerClient } from '@supabase/ssr'
+import { createAdminClient } from '@/lib/supabase/admin'
 
 export const dynamic = 'force-dynamic'
 
 export default async function SurveyPage({ params }: { params: { token: string } }) {
-  // Use anon client to look up token (no auth required for public survey)
-  const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    { cookies: { get: () => undefined, set: () => {}, remove: () => {} } }
-  )
-  const db = supabase as any
+  // Public survey: read the token server-side with the service role so the lookup
+  // isn't affected by RLS/grants on survey_tokens or the embedded clients row.
+  // Safe — this runs only on the server and is keyed by the secret token in the URL.
+  const db = createAdminClient() as any
 
   const { data: tokenRow } = await db
     .from('survey_tokens')
     .select('id, client_id, submitted_at, clients(business_name, contact_name)')
     .eq('token', params.token)
-    .single()
+    .maybeSingle()
 
   if (!tokenRow) {
     return (
