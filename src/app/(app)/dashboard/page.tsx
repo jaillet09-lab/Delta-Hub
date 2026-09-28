@@ -1,6 +1,7 @@
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
 import { getSettings } from '@/actions/settings'
+import { getDismissedAlertIds } from '@/actions/alerts'
 import { buildDashboardAlerts, computeClientHealth } from '@/lib/health'
 import { getUpcomingDates } from '@/lib/schedule'
 import { KPIGrid } from '@/components/dashboard/KPIGrid'
@@ -169,6 +170,17 @@ export default async function DashboardPage() {
       .not('frequency', 'is', null),
   ])
 
+  // Last survey SENT per client (so an auto-sent survey clears the "overdue" alert,
+  // not just a submitted one). RLS-safe: falls back to submitted-only if unreadable.
+  const [{ data: sentTokens }, dismissedAlertIds] = await Promise.all([
+    (supabase as any)
+      .from('survey_tokens')
+      .select('client_id, created_at')
+      .eq('kind', 'ongoing')
+      .order('created_at', { ascending: false }),
+    getDismissedAlertIds(),
+  ])
+
   const clients           = clientsRes.data        || []
   const surveys           = surveysRes.data         || []
   const lastSurveys       = lastSurveysRes.data      || []
@@ -235,6 +247,14 @@ export default async function DashboardPage() {
   for (const s of lastSurveys as any[]) {
     if (!lastSurveyDates[s.client_id]) {
       lastSurveyDates[s.client_id] = s.submitted_at
+    }
+  }
+  // Fold in the most recent survey we SENT — a survey sent within the cadence
+  // (even if not yet submitted) means we've already reached out, so don't nag.
+  for (const t of (sentTokens ?? []) as any[]) {
+    const prev = lastSurveyDates[t.client_id]
+    if (!prev || new Date(t.created_at) > new Date(prev)) {
+      lastSurveyDates[t.client_id] = t.created_at
     }
   }
   for (const s of surveys as any[]) {
@@ -318,7 +338,7 @@ export default async function DashboardPage() {
         valuationMultiple={settings.valuation_multiple}
       />
 
-      {alerts.length > 0 && <AlertPanel alerts={alerts} />}
+      {alerts.length > 0 && <AlertPanel alerts={alerts} initialDismissed={dismissedAlertIds} />}
 
       {/* ── MISSED CLEANS ────────────────────────────────────────────────── */}
       {missedItems.length > 0 && (

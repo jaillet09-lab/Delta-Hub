@@ -2,6 +2,7 @@
 
 import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
+import { sendPushToRole } from '@/lib/push'
 import { Resend } from 'resend'
 
 export async function sendSurveyEmailAction(clientId: string): Promise<{ success?: boolean; error?: string; tokenId?: string }> {
@@ -121,6 +122,13 @@ export async function submitSurveyAction(data: {
     const contactName  = tokenRow?.clients?.contact_name  || ''
 
     const avg = ((data.qualityScore + data.reliabilityScore + data.communicationScore + data.valueScore + data.loyaltyScore) / 5).toFixed(1)
+
+    // Notify the owner in-app that a survey came in
+    sendPushToRole('admin', {
+      title: `Survey in — ${businessName}`,
+      body: `${avg}/10 average${data.comments ? ' · left a comment' : ''}.`,
+      url: '/surveys',
+    }).catch(() => {})
 
     const apiKey = process.env.RESEND_API_KEY
     if (apiKey) {

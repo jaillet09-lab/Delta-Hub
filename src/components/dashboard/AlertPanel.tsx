@@ -1,39 +1,27 @@
 'use client'
 
 import Link from 'next/link'
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { AlertCircle, AlertTriangle, X } from 'lucide-react'
 import type { DashboardAlert } from '@/types/app'
-
-const STORAGE_KEY = 'delta-dismissed-alerts'
+import { dismissAlertsAction } from '@/actions/alerts'
 
 interface AlertPanelProps {
   alerts: DashboardAlert[]
+  /** IDs already dismissed (persisted server-side), seeded from the dashboard. */
+  initialDismissed?: string[]
 }
 
-export function AlertPanel({ alerts }: AlertPanelProps) {
-  const [dismissed, setDismissed] = useState<Set<string>>(new Set())
-
-  useEffect(() => {
-    try {
-      const stored = localStorage.getItem(STORAGE_KEY)
-      if (stored) setDismissed(new Set(JSON.parse(stored) as string[]))
-    } catch {}
-  }, [])
+export function AlertPanel({ alerts, initialDismissed = [] }: AlertPanelProps) {
+  const [dismissed, setDismissed] = useState<Set<string>>(() => new Set(initialDismissed))
 
   const visible = alerts.filter(a => !dismissed.has(a.id))
   if (visible.length === 0) return null
 
-  function persist(next: Set<string>) {
-    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(Array.from(next))) } catch {}
+  const dismiss = (id: string) => {
+    setDismissed(prev => new Set(Array.from(prev).concat(id)))
+    void dismissAlertsAction([id])
   }
-
-  const dismiss = (id: string) =>
-    setDismissed(prev => {
-      const next = new Set(Array.from(prev).concat(id))
-      persist(next)
-      return next
-    })
 
   return (
     <div className="rounded-xl border border-gray-200 bg-white shadow-sm overflow-hidden">
@@ -44,9 +32,9 @@ export function AlertPanel({ alerts }: AlertPanelProps) {
         </p>
         <button
           onClick={() => {
-            const next = new Set(visible.map(a => a.id))
-            persist(next)
-            setDismissed(next)
+            const ids = visible.map(a => a.id)
+            setDismissed(prev => new Set(Array.from(prev).concat(ids)))
+            void dismissAlertsAction(ids)
           }}
           className="text-xs text-gray-400 hover:text-gray-600 transition-colors"
         >
