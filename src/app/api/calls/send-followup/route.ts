@@ -1,9 +1,6 @@
 import { NextResponse } from 'next/server'
-import React from 'react'
 import { createAdminClient } from '@/lib/supabase/admin'
-import { renderDocumentPdf } from '@/lib/documents/pdf'
-import { CapabilityDocument } from '@/components/documents/render/CapabilityDocument'
-import { DEFAULT_CAPABILITY } from '@/lib/documents/capability'
+import { sendThreadedEmail, buildCapabilityAttachment } from '@/lib/emails/prospect-email'
 
 export const runtime = 'nodejs'
 export const maxDuration = 60
@@ -29,9 +26,11 @@ function bodyTextToHtml(text: string): string {
   return `<div style="font-family:Arial,Helvetica,sans-serif;font-size:15px;color:#1a1a1a;line-height:1.65;max-width:560px;">${inner}</div>`
 }
 
-// Send the drafted follow-up email + capability statement. Idempotent: only fires
-// when the call's follow_up_status is still 'pending', then flips it to 'sent', so
-// QStash and the safety cron can't double-send.
+// Send the drafted follow-up email + capability statement (PDF), always from
+// hello@deltacleaning.com.au. Threads under the lead's existing email thread when
+// there is one; otherwise it starts the thread and saves the Message-ID so future
+// emails reply into the same conversation. Idempotent: only fires while
+// follow_up_status is 'pending', then flips to 'sent'.
 export async function POST(req: Request) {
   if (!authed(req)) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   const { callId } = await req.json().catch(() => ({} as any))
@@ -45,52 +44,55 @@ export async function POST(req: Request) {
     return NextResponse.json({ ok: true, skipped: 'no body' })
   }
 
-  // Recipient
-  let recipient: string | null = null
-  let company: string | null = null
-  if (call.cold_lead_id) {
-    const { data: l } = await db.from('cold_leads').select('email, business_name').eq('id', call.cold_lead_id).maybeSingle()
-    recipient = l?.email ?? null; company = l?.business_name ?? null
-  } else if (call.lead_id) {
-    const { data: l } = await db.from('leads').select('contact_email, business_name').eq('id', call.lead_id).maybeSingle()
-    recipient = l?.contact_email ?? null; company = l?.business_name ?? null
-  }
+  // Recipient + any existing email thread for this lead.
+  const table = call.cold_lead_id ? 'cold_leads' : 'leads'
+  const leadId = call.cold_lead_id || call.lead_id
+  const emailCol = call.cold_lead_id ? 'email' : 'contact_email'
+  const { data: lead } = await db
+    .from(table)
+    .select(`${emailCol}, business_name, intro_email_message_id, intro_email_subject`)
+    .eq('id', leadId)
+    .maybeSingle()
+
+  const recipient: string | null = lead?.[emailCol] ?? null
   if (!recipient) {
     await db.from('calls').update({ follow_up_status: 'skipped', follow_up_error: 'no recipient email' }).eq('id', call.id)
     return NextResponse.json({ ok: true, skipped: 'no recipient' })
   }
 
-  const apiKey = process.env.RESEND_API_KEY
-  if (!apiKey) return NextResponse.json({ error: 'Email not configured' }, { status: 500 })
+  // Always attach the capability statement (rendered PDF).
+  const attachments = await buildCapabilityAttachment()
 
-  // Always attach the capability statement to the intro follow-up.
-  const attachments: { filename: string; content: Buffer }[] = []
-  try {
-    const cap = await renderDocumentPdf(React.createElement(CapabilityDocument, { data: DEFAULT_CAPABILITY }))
-    attachments.push({ filename: 'Delta Cleaning Capability Statement.pdf', content: cap })
-  } catch { /* send without it rather than not at all */ }
+  // Reply into the existing thread if there is one; otherwise open a new thread we own.
+  const existingThread = lead?.intro_email_message_id || null
+  const newMessageId = existingThread ? undefined : `<call-${call.id}-${Date.now()}@deltacleaning.com.au>`
+  const baseSubject = call.follow_up_subject || `Following up${lead?.business_name ? `, ${lead.business_name}` : ''}`
+  const subject = existingThread
+    ? ((lead?.intro_email_subject || baseSubject).startsWith('Re: ')
+        ? (lead?.intro_email_subject || baseSubject)
+        : `Re: ${lead?.intro_email_subject || baseSubject}`)
+    : baseSubject
 
-  try {
-    const { Resend } = await import('resend')
-    const resend = new Resend(apiKey)
-    const res = await resend.emails.send({
-      from: 'Jackson Jaillet <hello@deltacleaning.com.au>',
-      reply_to: 'hello@deltacleaning.com.au',
-      bcc: 'hello@deltacleaning.com.au',
-      to: recipient,
-      subject: call.follow_up_subject || `Following up${company ? `, ${company}` : ''}`,
-      html: bodyTextToHtml(call.follow_up_body),
-      attachments,
-    })
-    if (res.error) {
-      await db.from('calls').update({ follow_up_error: String(res.error.message).slice(0, 300) }).eq('id', call.id)
-      return NextResponse.json({ error: res.error.message }, { status: 500 })
-    }
-  } catch (e: any) {
-    await db.from('calls').update({ follow_up_error: String(e?.message ?? 'send failed').slice(0, 300) }).eq('id', call.id)
-    return NextResponse.json({ error: e?.message ?? 'send failed' }, { status: 500 })
+  const result = await sendThreadedEmail({
+    to: recipient,
+    subject,
+    html: bodyTextToHtml(call.follow_up_body),
+    inReplyTo: existingThread || undefined,
+    messageId: newMessageId,
+    attachments,
+  })
+
+  if (!result.success) {
+    await db.from('calls').update({ follow_up_error: String(result.error ?? 'send failed').slice(0, 300) }).eq('id', call.id)
+    return NextResponse.json({ error: result.error ?? 'send failed' }, { status: 500 })
   }
 
   await db.from('calls').update({ follow_up_status: 'sent', follow_up_sent_at: new Date().toISOString() }).eq('id', call.id)
-  return NextResponse.json({ ok: true, sent: true })
+
+  // If we started a new thread, remember it so later emails reply into it.
+  if (newMessageId && leadId) {
+    await db.from(table).update({ intro_email_message_id: newMessageId, intro_email_subject: subject }).eq('id', leadId)
+  }
+
+  return NextResponse.json({ ok: true, sent: true, threaded: !!existingThread })
 }
