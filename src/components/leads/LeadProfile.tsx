@@ -11,6 +11,7 @@ import { Button } from '@/components/ui/Button'
 import { Badge } from '@/components/ui/Badge'
 import { Modal } from '@/components/ui/Modal'
 import { CallHistory, type CallRow } from '@/components/calls/CallHistory'
+import { CallButton } from '@/components/calls/CallButton'
 import { ProposalForm } from '@/components/leads/ProposalForm'
 import { AgreementForm } from '@/components/leads/AgreementForm'
 import { formatDate, formatAUD } from '@/lib/formatters'
@@ -283,10 +284,13 @@ export function LeadProfile({ lead: initialLead, calls = [] }: { lead: Lead; cal
                 </a>
               )}
               {lead.contact_phone && (
-                <a href={`tel:${lead.contact_phone}`} className="flex items-center gap-2.5 text-sm text-gray-500 hover:text-blue-600 transition-colors">
-                  <Phone className="w-3.5 h-3.5 flex-shrink-0" />
-                  {lead.contact_phone}
-                </a>
+                <div className="space-y-2">
+                  <a href={`tel:${lead.contact_phone}`} className="flex items-center gap-2.5 text-sm text-gray-500 hover:text-blue-600 transition-colors">
+                    <Phone className="w-3.5 h-3.5 flex-shrink-0" />
+                    {lead.contact_phone}
+                  </a>
+                  <CallButton phone={lead.contact_phone} leadId={lead.id} label="Call from Delta" />
+                </div>
               )}
               {(lead.address || lead.suburb) && (
                 <div className="flex items-start gap-2.5 text-sm text-gray-500">
